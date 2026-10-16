@@ -13,3 +13,4 @@ Skills that inspect and report. They never modify data.
 | Skill | What it does |
 |---|---|
 | `/analyze-local <path or description>` | Analyzes a file or directory on the local filesystem |
+| `/analyze-web <URL or description>` | Gives a brief overview of a website and the company behind it |
