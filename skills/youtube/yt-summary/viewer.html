@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YouTube archive</title>
+<meta name="yt-token" content="{{TOKEN}}">
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --border: #e2e2e0;
+    --accent: #c4302b; --accent-soft: #fbe9e8; --active: #fff6d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
+      --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
+    --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px 64px; }
+  a { color: inherit; }
+
+  header.top { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 20px 0 12px; }
+  h1 { font-size: 1.45rem; line-height: 1.3; margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: .9rem; }
+  .back { display: inline-block; color: var(--muted); font-size: .9rem; text-decoration: none; margin-bottom: 4px; }
+  .back:hover { color: var(--accent); }
+  .theme { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .theme button { background: var(--surface); color: var(--muted); border: 0; padding: 6px 10px; font: inherit;
+    font-size: .8rem; cursor: pointer; }
+  .theme button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+  .player { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+  .frame { width: min(100%, calc(42vh * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #000;
+    border-radius: 10px; overflow: hidden; }
+  .frame iframe, .frame #player { width: 100%; height: 100%; border: 0; display: block; }
+  .frame a.poster { display: block; width: 100%; height: 100%; background-size: cover; background-position: center;
+    position: relative; }
+  .frame a.poster::after { content: "▶"; position: absolute; inset: 0; margin: auto; width: 72px; height: 50px;
+    border-radius: 12px; background: var(--accent); color: #fff; font-size: 24px; display: grid; place-items: center; }
+  .fallback { display: none; color: var(--muted); font-size: .85rem; text-align: center; margin: 6px 0 0; }
+  .no-player .fallback { display: block; }
+
+  section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px;
+    margin-top: 16px; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  h2 a, ul.topics a[data-nav] { text-decoration: none; }
+  h2 a:hover, ul.topics a[data-nav]:hover { color: var(--accent); }
+  h3 { font-size: 1.02rem; margin: 0 0 6px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 4px; }
+  p { margin: 0 0 8px; }
+  .notice { background: var(--accent-soft); border-color: transparent; }
+  .command { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .command code { font: .95rem ui-monospace, Consolas, monospace; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; }
+  .command button { font: inherit; font-size: .85rem; padding: 4px 12px; border-radius: 6px; border: 0; cursor: pointer;
+    background: var(--accent); color: #fff; }
+  .command button:hover { filter: brightness(1.1); }
+  button.action { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 0; cursor: pointer;
+    background: var(--accent); color: #fff; margin: 4px 0 12px; }
+  button.action:hover { filter: brightness(1.1); }
+  button.action:disabled { opacity: .6; cursor: default; }
+  .list-actions button.action { padding: 5px 12px; font-size: .85rem; margin: 8px 0 4px; }
+  details.channel > .list-actions { padding: 0 16px; }
+  .job { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .job.error { color: var(--accent); font-weight: 400; overflow-wrap: anywhere; }
+  .badge.working { color: var(--muted); background: var(--border); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  a.t { font-variant-numeric: tabular-nums; font-size: .82rem; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border-radius: 6px; padding: 1px 7px; text-decoration: none; white-space: nowrap; }
+  a.t::before { content: "▶ "; font-size: .7rem; }
+  a.t:hover { filter: brightness(1.1); text-decoration: underline; }
+
+  ul.topics { list-style: none; padding: 0; margin: 0; columns: 2 280px; column-gap: 24px; }
+  ul.topics li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; break-inside: avoid; }
+  ul.topics li.active span { font-weight: 600; }
+
+  .idea { padding: 14px 0; border-top: 1px solid var(--border); border-radius: 8px; transition: background .3s; }
+  .idea:first-of-type { border-top: 0; padding-top: 0; }
+  .idea.active { background: var(--active); box-shadow: 0 0 0 8px var(--active); }
+  .n { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%;
+    background: var(--text); color: var(--bg); font-size: .78rem; }
+  ul.moments { margin: 0; padding-left: 0; list-style: none; }
+  ul.moments li { padding: 2px 0; }
+  ul.moments a.t { margin-right: 6px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .description { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; font-size: .92rem; }
+  footer { color: var(--muted); font-size: .8rem; margin-top: 20px; text-align: center; }
+
+  .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 4px 0 8px; }
+  .filters input[type="search"] { flex: 1 1 240px; min-width: 0; font: inherit; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .filters label { color: var(--muted); font-size: .9rem; display: flex; gap: 6px; align-items: center; }
+  ul.videos { list-style: none; padding: 0; margin: 0; }
+  ul.videos li + li { border-top: 1px solid var(--border); }
+  ul.videos a { display: flex; gap: 12px; align-items: center; padding: 8px 0; text-decoration: none; }
+  ul.videos a:hover .title { color: var(--accent); }
+  ul.videos img { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+    background: var(--border); }
+  ul.videos .title { display: block; font-weight: 600; line-height: 1.35; }
+  .badge { display: inline-block; font-size: .72rem; font-weight: 600; color: var(--accent); background: var(--accent-soft);
+    border-radius: 6px; padding: 0 6px; margin-left: 6px; }
+  .empty { color: var(--muted); }
+
+  details.channel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 10px; }
+  details.channel > summary { list-style: none; display: flex; gap: 8px; align-items: center; padding: 12px 16px;
+    cursor: pointer; border-radius: 12px; }
+  details.channel > summary::-webkit-details-marker { display: none; }
+  details.channel > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  details.channel[open] > summary::before { transform: rotate(90deg); }
+  details.channel > summary:hover { background: var(--accent-soft); }
+  details.channel > summary .name { font-weight: 600; font-size: 1.05rem; }
+  details.channel > summary .badge { margin-left: 0; }
+  details.channel .channel-page { margin-left: auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
+  details.channel .channel-page:hover { color: var(--accent); }
+  details.channel > ul.videos { padding: 0 16px 8px; border-top: 1px solid var(--border); }
+
+  @media (max-width: 600px) {
+    header.top { flex-direction: column; }
+    section { padding: 14px; }
+    ul.videos img { width: 88px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+  const app = document.getElementById("app");
+  let L = {};          // labels in the summary language, from /api/config
+  let CONFIG = {};     // the rest of /api/config: language, model, whether summaries can be started here
+  let videos = null;   // archive list, loaded once per visit of the home page
+  let pageKind = "archive";
+  const TOKEN = document.querySelector('meta[name="yt-token"]').content;
+  let player = null, ready = false, playerTimer = null;
+
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+  const label = (key, values = {}) => (L[key] || key).replace(/\{(\w+)\}/g, (_, k) => values[k] ?? "");
+  const getJson = url => fetch(url).then(r => r.json());
+
+  function hms(s) {
+    s = Math.floor(s || 0);
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`;
+  }
+  function seconds(v) {
+    if (typeof v === "number") return Math.floor(v);
+    return String(v).split(":").reduce((total, part) => total * 60 + Number(part), 0);
+  }
+  const day = d => d && d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : (d || "");
+  const paragraphs = text => String(text || "").split(/\n\n+/).filter(p => p.trim()).map(p => `<p>${esc(p.trim())}</p>`).join("");
+
+  // ---------- theme: auto follows the system; a choice is remembered in this browser only ----------
+  function currentTheme() { try { return localStorage.getItem("yt-summary-theme") || "auto"; } catch (e) { return "auto"; } }
+  function applyTheme(choice) {
+    if (choice === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", choice);
+    document.querySelectorAll("[data-theme-choice]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === choice)));
+  }
+  const themeSwitch = () => `<div class="theme" role="group">${["auto", "light", "dark"].map(c =>
+    `<button data-theme-choice="${c}">${esc(label("theme_" + c))}</button>`).join("")}</div>`;
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-theme-choice]");
+    if (!b) return;
+    applyTheme(b.dataset.themeChoice);
+    try { localStorage.setItem("yt-summary-theme", b.dataset.themeChoice); } catch (err) {}
+  });
+
+  // ---------- routing: / is the archive, /c/<id> a channel, /p/<id> a playlist, /v/<id> one video ----------
+  // Going back returns to the place on the page where the user left it.
+  history.scrollRestoration = "manual";
+  function route() {
+    const match = location.pathname.match(/^\/([vcp])\/([\w-]+)$/);
+    const scroll = (history.state && history.state.scroll) || 0;
+    stopPlayer();
+    window.scrollTo(0, 0);
+    const page = !match ? showArchive({kind: "all"})
+      : match[1] === "v" ? showVideo(match[2])
+      : showArchive({kind: match[1] === "c" ? "channel" : "playlist", id: match[2]});
+    page.then(() => { applyTheme(currentTheme()); window.scrollTo(0, scroll); });
+  }
+  document.addEventListener("click", e => {
+    const link = e.target.closest("a[data-nav]");
+    if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    e.preventDefault();
+    history.replaceState({scroll: window.scrollY}, "");
+    history.pushState(null, "", link.getAttribute("href"));
+    route();
+  });
+  window.addEventListener("popstate", route);
+
+  // ---------- archive, one channel or one playlist ----------
+  let filter = {text: "", onlySummaries: false};
+  let scope = {kind: "all"}, playlists = [], scoped = [];
+  // Channels the user opened on the archive page; every load starts with all collapsed,
+  // going back from a video keeps them as they were.
+  const openChannels = new Set();
+
+  async function showArchive(newScope) {
+    scope = newScope;
+    pageKind = "archive";
+    [videos, playlists] = await Promise.all([getJson("/api/videos"), getJson("/api/playlists")]);
+    let title = label("archive");
+    if (scope.kind === "channel") {
+      scoped = videos.filter(v => v.channel_id === scope.id);
+      title = scoped.length ? scoped[0].channel : null;
+    } else if (scope.kind === "playlist") {
+      const playlist = playlists.find(p => p.id === scope.id);
+      const byId = new Map(videos.map(v => [v.id, v]));
+      scoped = playlist ? playlist.videos.filter(id => byId.has(id)).map(id => byId.get(id)) : [];
+      title = playlist ? playlist.title : null;
+    } else {
+      scoped = videos;
+    }
+    const back = scope.kind === "all" ? "" : `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
+    if (title === null) {
+      document.title = label("list_not_found");
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("list_not_found"))}</h1></div>${themeSwitch()}</header>`;
+      return;
+    }
+    document.title = title;
+    const withSummary = scoped.filter(v => v.summary).length;
+    app.innerHTML = `
+      <header class="top">
+        <div>${back}<h1>${esc(title)}</h1>
+          <div class="meta">${esc(label("video_count", {n: scoped.length}))} · ${esc(label("summary_count", {n: withSummary}))}<span id="jobs-indicator"></span></div>
+          ${scope.kind === "all" ? "" : `<div class="list-actions">${summarizeListButton(scoped)}</div>`}</div>
+        ${themeSwitch()}
+      </header>
+      <div class="filters">
+        <input type="search" id="q" placeholder="${esc(label("search"))}" value="${esc(filter.text)}">
+        <label><input type="checkbox" id="only" ${filter.onlySummaries ? "checked" : ""}> ${esc(label("only_summaries"))}</label>
+      </div>
+      <div id="list"></div>`;
+    document.getElementById("q").addEventListener("input", e => { filter.text = e.target.value; renderList(); });
+    document.getElementById("only").addEventListener("change", e => { filter.onlySummaries = e.target.checked; renderList(); });
+    renderList();
+    showJobsIndicator();
+  }
+
+  const videoList = list => `<ul class="videos">${list.map(v => `
+    <li><a href="/v/${esc(v.id)}" data-nav>
+      <img src="/api/thumb/${esc(v.id)}" alt="" loading="lazy">
+      <span><span class="title">${esc(v.title)}${v.summary ? `<span class="badge">${esc(label("summary_badge"))}</span>`
+        : isActive(v.id) ? `<span class="badge working">${esc(label("badge_working"))}</span>` : ""}</span>
+        <span class="meta">${esc(v.upload_date)} · ${hms(v.duration)}</span></span>
+    </a></li>`).join("")}
+  </ul>`;
+
+  function renderList() {
+    const words = filter.text.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = scoped
+      .filter(v => !filter.onlySummaries || v.summary)
+      .filter(v => words.every(w => (v.title + " " + v.channel).toLowerCase().includes(w)));
+    const list = document.getElementById("list");
+    if (!shown.length) { list.innerHTML = `<p class="empty">${esc(label("no_results"))}</p>`; return; }
+    if (scope.kind === "playlist") { list.innerHTML = `<section>${videoList(shown)}</section>`; return; }  // playlist order
+
+    shown = shown.slice().sort((a, b) => b.upload_date.localeCompare(a.upload_date));
+    if (scope.kind === "channel") { list.innerHTML = `<section>${videoList(shown)}</section>`; return; }
+
+    const channels = new Map();
+    for (const v of shown) {
+      if (!channels.has(v.channel_id)) channels.set(v.channel_id, {id: v.channel_id, name: v.channel, videos: []});
+      channels.get(v.channel_id).videos.push(v);
+    }
+    const sorted = [...channels.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const playlistLinks = playlists.length && !words.length && !filter.onlySummaries ? `
+      <section><h2>${esc(label("playlists"))}</h2>
+        <ul class="topics">${playlists.map(p => `<li><a href="/p/${esc(p.id)}" data-nav>${esc(p.title)}</a>
+          <span class="meta">(${p.videos.length})</span></li>`).join("")}</ul>
+      </section>` : "";
+    // Channels start collapsed; while searching or filtering, the ones with matches open by themselves.
+    const searching = words.length > 0 || filter.onlySummaries;
+    list.innerHTML = playlistLinks + sorted.map(c => {
+      const summaries = c.videos.filter(v => v.summary).length;
+      return `
+      <details class="channel" data-channel="${esc(c.id)}" ${searching || openChannels.has(c.id) ? "open" : ""}>
+        <summary>
+          <span class="name">${esc(c.name)}</span>
+          <span class="meta">(${c.videos.length})</span>
+          ${summaries ? `<span class="badge">${esc(label("summary_badge"))} ${summaries}</span>` : ""}
+          <a class="channel-page" href="/c/${esc(c.id)}" data-nav title="${esc(c.name)}">↗</a>
+        </summary>
+        ${searching ? "" : `<div class="list-actions">${summarizeListButton(c.videos)}</div>`}
+        ${videoList(c.videos)}
+      </details>`;
+    }).join("");
+    if (!searching) {
+      list.querySelectorAll("details.channel").forEach(d => d.addEventListener("toggle", () => {
+        if (d.open) openChannels.add(d.dataset.channel); else openChannels.delete(d.dataset.channel);
+      }));
+    }
+  }
+
+  // ---------- one video ----------
+  let videoId = null;
+
+  function timeLink(at, text) {
+    const t = seconds(at);
+    return `<a class="t" href="https://www.youtube.com/watch?v=${esc(videoId)}&amp;t=${t}s" data-t="${t}" target="_blank" rel="noopener">${esc(text || hms(t))}</a>`;
+  }
+
+  // Description: links become clickable, times seek the video.
+  function richText(text) {
+    return esc(text)
+      .replace(/https?:\/\/[^\s<]+/g, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`)
+      .replace(/(^|[\s(\[])((?:\d{1,2}:)?\d{1,2}:\d{2})(?=[\s)\],.-]|$)/gm, (_, before, t) => before + timeLink(t, t));
+  }
+
+  async function showVideo(id) {
+    videoId = id;
+    pageKind = "video";
+    const v = await getJson(`/api/video/${encodeURIComponent(id)}`);
+    const back = `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
+    if (v.error) {
+      document.title = label("not_found");
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("not_found"))}</h1></div>${themeSwitch()}</header>`;
+      return;
+    }
+    document.title = v.title;
+    const s = v.summary;
+    const meta = [v.channel ? `<a href="/c/${esc(v.channel_id)}" data-nav>${esc(v.channel)}</a>` : "",
+      esc(day(v.upload_date)), hms(v.duration)].filter(Boolean).join(" · ");
+
+    const topics = s ? s.topics.map(t => [t.start, t.title]) : (v.chapters || []).map(c => [c.start_time, c.title]);
+    const topicsHtml = topics.length ? `
+      <section><h2>${esc(label(s ? "topics" : "chapters"))}</h2>
+        <ul class="topics">${topics.map(([t, title]) => `<li>${timeLink(t)} <span>${esc(title)}</span></li>`).join("")}</ul>
+      </section>` : "";
+
+    const ideasHtml = s ? `
+      <section class="ideas"><h2>${esc(label("ideas"))}</h2>
+        ${s.ideas.map((idea, i) => `
+          <article class="idea" data-t="${seconds(idea.start)}">
+            <h3><span class="n">${i + 1}</span>${esc(idea.title)} ${timeLink(idea.start)}</h3>
+            ${paragraphs(idea.summary)}
+            ${idea.reasoning ? `<h4>${esc(label("reasoning"))}</h4>${paragraphs(idea.reasoning)}` : ""}
+            ${idea.moments && idea.moments.length ? `<h4>${esc(label("moments"))}</h4>
+              <ul class="moments">${idea.moments.map(m => `<li>${timeLink(m.start)} ${esc(m.text)}</li>`).join("")}</ul>` : ""}
+          </article>`).join("")}
+      </section>` : "";
+
+    const transcript = v.transcript ? ` (${v.transcript.language}, ${v.transcript.kind})` : "";
+    app.innerHTML = `
+      <header class="top">
+        <div>${back}<h1>${esc(v.title)}</h1>
+          <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div></div>
+        ${themeSwitch()}
+      </header>
+      <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
+      ${s ? `<section><h2>${esc(label("overview"))}</h2>${paragraphs(s.overview)}</section>`
+          : `<section class="notice"><p>${esc(label("no_summary"))}</p>
+              ${CONFIG.summarize && v.transcript ? `<div id="job-box"></div>` : ""}
+              <p class="meta">${esc(label("no_summary_command"))}</p>
+              <div class="command"><code>/yt-summary ${esc(id)}</code>
+                <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>`}
+      ${topicsHtml}
+      ${ideasHtml}
+      ${v.description ? `<section><details><summary>${esc(label("description"))}</summary>
+        <div class="description">${richText(v.description)}</div></details></section>` : ""}
+      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}</footer>` : ""}`;
+    startPlayer(id);
+    showJobBox();
+  }
+
+  // ---------- summaries started from this page: the server runs Claude Code in the background ----------
+  let jobs = {}, jobsTimer = null;
+  const isActive = id => jobs[id] && (jobs[id].state === "queued" || jobs[id].state === "running");
+
+  // Button for the videos of a channel or playlist that have a transcript but no summary yet.
+  function summarizeListButton(list) {
+    const missing = list.filter(v => !v.summary && v.transcript && !isActive(v.id));
+    if (!CONFIG.summarize || !missing.length) return "";
+    const time = hms(missing.reduce((total, v) => total + v.duration, 0));
+    return `<button type="button" class="action" data-summarize="${esc(missing.map(v => v.id).join(" "))}"
+      data-confirm="${esc(label("summarize_confirm", {n: missing.length, time, model: CONFIG.model}))}">${esc(label("summarize_channel", {n: missing.length}))}</button>`;
+  }
+
+  function showJobBox() {
+    const box = document.getElementById("job-box");
+    if (!box) return;
+    const job = jobs[videoId];
+    if (job && job.state === "queued") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_queued"))}</p>`;
+    else if (job && job.state === "running") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_running"))}</p>`;
+    else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label("job_error", {error: job.error}))}</p>` : "")
+      + `<button type="button" class="action" data-summarize="${esc(videoId)}">${esc(label("summarize"))}</button>`;
+  }
+
+  function showJobsIndicator() {
+    const indicator = document.getElementById("jobs-indicator");
+    const active = Object.keys(jobs).filter(isActive).length;
+    if (indicator) indicator.innerHTML = active ? ` · <span class="spinner"></span>${esc(label("jobs_active", {n: active}))}` : "";
+  }
+
+  // Asks the server for the state of the summaries; keeps asking every few seconds while some are in progress.
+  async function refreshJobs() {
+    clearTimeout(jobsTimer);
+    const before = JSON.stringify(jobs), previous = jobs;
+    try { jobs = await getJson("/api/jobs"); } catch (e) { return; }
+    if (JSON.stringify(jobs) !== before) {
+      const finished = Object.keys(jobs).filter(id => jobs[id].state === "done" && (!previous[id] || previous[id].state !== "done"));
+      if (pageKind === "video" && finished.includes(videoId)) {
+        stopPlayer();
+        await showVideo(videoId);  // the new summary appears in place
+      } else if (pageKind === "video") {
+        showJobBox();
+      } else if (document.getElementById("list")) {
+        if (finished.length) videos = await getJson("/api/videos");
+        const fresh = new Map(videos.map(v => [v.id, v]));
+        scoped = scoped.map(v => fresh.get(v.id) || v);
+        renderList();
+        document.querySelectorAll(".top .list-actions").forEach(el => { el.innerHTML = summarizeListButton(scoped); });
+        showJobsIndicator();
+      }
+    }
+    if (Object.keys(jobs).some(isActive)) jobsTimer = setTimeout(refreshJobs, 3000);
+  }
+
+  document.addEventListener("click", async e => {
+    const button = e.target.closest("button[data-summarize]");
+    if (!button) return;
+    e.preventDefault();
+    if (button.dataset.confirm && !window.confirm(button.dataset.confirm)) return;
+    button.disabled = true;
+    const ids = button.dataset.summarize.split(" ");
+    try {
+      const response = await fetch("/api/summarize", {method: "POST",
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify({ids})});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      jobs = {...jobs, [ids[0]]: {state: "error", error: err.message}};
+    }
+    await refreshJobs();
+  });
+
+  // ---------- player: times seek the embedded video; without a working player they open YouTube (their href) ----------
+  let apiLoading = null;
+  function loadApi() {
+    if (window.YT && YT.Player) return Promise.resolve();
+    return apiLoading ??= new Promise((resolve, reject) => {
+      window.onYouTubeIframeAPIReady = resolve;
+      const script = document.createElement("script");
+      script.src = "https://www.youtube.com/iframe_api";
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  function fallback(id) {
+    if (ready || id !== videoId) return;
+    document.body.classList.add("no-player");
+    const frame = document.querySelector(".frame");
+    if (frame) frame.innerHTML = `<a class="poster" href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener"
+      style="background-image:url(/api/thumb/${esc(id)})"></a>`;
+    player = null;
+  }
+
+  function startPlayer(id) {
+    playerTimer = setTimeout(() => fallback(id), 10000);
+    loadApi().then(() => {
+      if (id !== videoId) return;
+      player = new YT.Player("player", {
+        videoId: id, playerVars: {rel: 0, modestbranding: 1},
+        events: {
+          onReady: () => { ready = true; clearTimeout(playerTimer); },
+          onError: () => { ready = false; fallback(id); },
+        },
+      });
+    }, () => fallback(id));
+  }
+
+  function stopPlayer() {
+    clearTimeout(playerTimer);
+    if (player && player.destroy) player.destroy();
+    player = null; ready = false;
+    document.body.classList.remove("no-player");
+  }
+
+  document.addEventListener("click", e => {
+    const link = e.target.closest("a.t");
+    if (!link || !ready || !player) return;
+    e.preventDefault();
+    player.seekTo(Number(link.dataset.t), true);
+    player.playVideo();
+  });
+
+  // Copy buttons: put their text on the clipboard and confirm it on the button for a moment.
+  document.addEventListener("click", async e => {
+    const button = e.target.closest("button[data-copy]");
+    if (!button) return;
+    const text = button.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {  // older browsers or a denied permission
+      const area = Object.assign(document.createElement("textarea"), {value: text});
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    button.textContent = label("copied");
+    setTimeout(() => { button.textContent = label("copy"); }, 1500);
+  });
+
+  // Highlight the topic and idea being played.
+  function mark(selector, getTime, now) {
+    const items = [...document.querySelectorAll(selector)].map(el => [getTime(el), el]).sort((a, b) => a[0] - b[0]);
+    let current = null;
+    for (const [t, el] of items) if (t <= now) current = el;
+    items.forEach(([, el]) => el.classList.toggle("active", el === current));
+  }
+  setInterval(() => {
+    if (!ready || !player || typeof player.getCurrentTime !== "function") return;
+    if (player.getPlayerState() !== YT.PlayerState.PLAYING) return;
+    const now = player.getCurrentTime();
+    mark("ul.topics li", li => Number(li.querySelector("a.t").dataset.t), now);
+    mark(".idea", el => Number(el.dataset.t), now);
+  }, 1000);
+
+  // ---------- start ----------
+  getJson("/api/config").then(async config => {
+    L = config.labels;
+    CONFIG = config;
+    try { jobs = await getJson("/api/jobs"); } catch (e) {}
+    refreshJobs();
+    document.documentElement.lang = config.language;
+    route();
+  });
+</script>
+</body>
+</html>
