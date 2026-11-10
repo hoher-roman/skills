@@ -55,6 +55,12 @@ LABELS = {
     "archive": "YouTube archive",
     "back": "Archive",
     "search": "Search videos",
+    "search_all": "Search channels and videos",
+    "channels": "Channels",
+    "videos": "Videos",
+    "channel_videos_one": "{n} video",
+    "channel_videos_other": "{n} videos",
+    "newest": "newest {date}",
     "only_summaries": "Only with a summary",
     "video_count": "Videos: {n}",
     "summary_count": "with a summary: {n}",
@@ -83,6 +89,42 @@ LABELS = {
     "job_error": "The summary could not be created: {error}",
     "jobs_active": "Summaries in progress: {n}",
     "badge_working": "In progress",
+    "settings": "Settings",
+    "settings_appearance": "Appearance",
+    "settings_ui_language": "Page language",
+    "settings_ui_language_note": "Changes at once. Summaries stay in the summary language.",
+    "settings_theme": "Theme",
+    "settings_theme_note": "Remembered in this browser only.",
+    "settings_file": "Saved in {path}",
+    "settings_summary": "Summaries",
+    "settings_language": "Summary language",
+    "settings_language_note": "ISO code such as en, de or sk. The pages show summaries in this language; "
+                              "/yt-summary translates the page labels for a new language.",
+    "settings_model": "Model for summaries",
+    "settings_model_inherit": "Claude Code default",
+    "settings_parallel": "Summaries at once",
+    "settings_server": "Server",
+    "settings_port": "Port",
+    "settings_port_note": "After saving, the server moves to the new port and this page follows it.",
+    "settings_archive": "Archive (shared with yt-fetch)",
+    "settings_output_dir": "Archive folder",
+    "settings_output_dir_note": "An existing folder. Nothing is moved; the pages then show the archive in that folder.",
+    "settings_fallback": "Caption languages when the video language is unknown",
+    "settings_fallback_note": "ISO codes separated by commas, in order of preference.",
+    "settings_explorer_names": "Readable folder names in Explorer",
+    "settings_save": "Save",
+    "settings_saved": "Saved.",
+    "settings_unchanged": "Nothing changed.",
+    "settings_moving": "Moving the server to port {port}…",
+    "settings_move_failed": "The server does not answer on port {port}. Run open-archive.cmd in the skill folder.",
+    "settings_bad_language": "Enter language codes such as en or sk.",
+    "settings_bad_model": "Enter a valid model name.",
+    "settings_bad_parallel": "Enter a number from 1 to 10.",
+    "settings_bad_port": "Enter a port from 1024 to 65535.",
+    "settings_port_taken": "Another program uses this port.",
+    "settings_bad_dir": "This folder does not exist.",
+    "settings_busy": "Summaries are being created; change this when they are done.",
+    "settings_error": "Saving failed: {error}",
     "theme_auto": "Auto",
     "theme_light": "Light",
     "theme_dark": "Dark",
@@ -106,6 +148,140 @@ def read_json(path, default=None):
 def load_config():
     stored = read_json(CONFIG_PATH, {}) or {}
     return {**DEFAULT_SUMMARY_CONFIG, **(stored.get("summary") or {}), "output_dir": stored.get("output_dir")}
+
+
+def save_config(stored):
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp = CONFIG_PATH.with_suffix(".tmp")
+    temp.write_text(json.dumps(stored, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temp, CONFIG_PATH)
+
+
+DEFAULT_FETCH_CONFIG = {"caption_fallback_languages": ["en"], "explorer_names": True}  # as in yt-fetch
+LANGUAGE_CODE = re.compile(r"[a-z]{2,3}(-[a-z0-9]{2,8})*")
+MODELS = ("inherit", "opus", "sonnet", "haiku")
+
+
+def ui_languages(config):
+    """Languages the viewer pages can be shown in: English (built in) and each translated labels file."""
+    found = {"en"}
+    if config.get("output_dir"):
+        root = Path(config["output_dir"]).expanduser()
+        found |= {f.name[len("summary-labels."):-len(".json")] for f in root.glob("summary-labels.*.json")}
+    return sorted(code for code in found if LANGUAGE_CODE.fullmatch(code))
+
+
+def ui_language(config):
+    """The language of the viewer pages: the chosen one, else the summary language."""
+    return config.get("ui_language") or config["language"]
+
+
+def page_labels(root, config):
+    language = ui_language(config)
+    translated = {} if language == "en" else read_json(labels_file(root, language), {}) or {}
+    return language, {**LABELS, **translated}
+
+
+def settings_payload():
+    """What the settings menu of the viewer shows: the whole shared config with defaults filled in."""
+    stored = read_json(CONFIG_PATH, {}) or {}
+    return {"config": str(CONFIG_PATH), "output_dir": stored.get("output_dir"),
+            "fetch": {**DEFAULT_FETCH_CONFIG, **(stored.get("fetch") or {})},
+            "summary": {**DEFAULT_SUMMARY_CONFIG, **(stored.get("summary") or {})},
+            "ui_language": ui_language(load_config()), "ui_languages": ui_languages(load_config()),
+            "models": list(MODELS), "windows": os.name == "nt", "busy": JOBS.busy()}
+
+
+def port_free(port):
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def int_or_zero(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def apply_settings(body):
+    """Check and save settings changed in the viewer.
+
+    Returns (changed keys with their new values, None), or (None, (field, error label)) when a value is wrong;
+    then nothing is saved."""
+    stored = read_json(CONFIG_PATH, {}) or {}
+    summary = {**DEFAULT_SUMMARY_CONFIG, **(stored.get("summary") or {})}
+    fetch = {**DEFAULT_FETCH_CONFIG, **(stored.get("fetch") or {})}
+    changes = {}
+    new = body.get("summary") or {}
+    if "language" in new:
+        language = str(new["language"]).strip().lower()
+        if not LANGUAGE_CODE.fullmatch(language):
+            return None, ("summary.language", "settings_bad_language")
+        changes["summary.language"] = language
+    if "ui_language" in new:
+        language = str(new["ui_language"]).strip().lower()
+        if language not in ui_languages(load_config()):
+            return None, ("summary.ui_language", "settings_bad_language")
+        changes["summary.ui_language"] = language
+    if "model" in new:
+        model = str(new["model"]).strip().lower()
+        if not re.fullmatch(r"[\w.\-\[\]]{1,60}", model):
+            return None, ("summary.model", "settings_bad_model")
+        changes["summary.model"] = model
+    if "parallel" in new:
+        parallel = int_or_zero(new["parallel"])
+        if not 1 <= parallel <= 10:
+            return None, ("summary.parallel", "settings_bad_parallel")
+        changes["summary.parallel"] = parallel
+    if "port" in new:
+        port = int_or_zero(new["port"])
+        if not 1024 <= port <= 65535:
+            return None, ("summary.port", "settings_bad_port")
+        if port != summary["port"]:
+            if JOBS.busy():
+                return None, ("summary.port", "settings_busy")
+            if not port_free(port):
+                return None, ("summary.port", "settings_port_taken")
+            changes["summary.port"] = port
+    new = body.get("fetch") or {}
+    if "caption_fallback_languages" in new:
+        value = new["caption_fallback_languages"]
+        codes = [str(c).strip().lower() for c in (value.split(",") if isinstance(value, str) else value or [])]
+        codes = [c for c in codes if c]
+        if not all(LANGUAGE_CODE.fullmatch(c) for c in codes):
+            return None, ("fetch.caption_fallback_languages", "settings_bad_language")
+        changes["fetch.caption_fallback_languages"] = codes
+    if "explorer_names" in new:
+        changes["fetch.explorer_names"] = bool(new["explorer_names"])
+    if "output_dir" in body:
+        text = str(body["output_dir"] or "").strip()
+        path = Path(text).expanduser()
+        if not text or not path.is_absolute() or not path.is_dir():
+            return None, ("output_dir", "settings_bad_dir")
+        old = stored.get("output_dir")
+        if not old or path.resolve() != Path(old).expanduser().resolve():
+            if JOBS.busy():
+                return None, ("output_dir", "settings_busy")
+            changes["output_dir"] = path.resolve().as_posix()
+    # Save only real changes; values left as they were stay as they are in the file (or absent, as defaults).
+    current = {"output_dir": stored.get("output_dir"), **{f"summary.{k}": v for k, v in summary.items()},
+               **{f"fetch.{k}": v for k, v in fetch.items()}}
+    changes = {key: value for key, value in changes.items() if current.get(key) != value}
+    for key, value in changes.items():
+        if "." in key:
+            section, name = key.split(".", 1)
+            stored.setdefault(section, {})[name] = value
+        else:
+            stored[key] = value
+    if changes:
+        save_config(stored)
+    return changes, None
 
 
 def archive_root(config):
@@ -441,6 +617,10 @@ class Jobs:
 
     def work(self):
         while True:
+            with self.lock:  # parallel was lowered in the settings: this worker ends
+                if self.workers > max(1, int(load_config()["parallel"])):
+                    self.workers -= 1
+                    return
             video_id = self.queue.get()
             with self.lock:
                 self.state[video_id] = {"state": "running"}
@@ -492,15 +672,37 @@ def make_handler(port):
                     or (origin and origin.removeprefix("http://") not in allowed_hosts)
                     or not hmac.compare_digest(self.headers.get("X-Token", ""), TOKEN)):
                 return self.send_error(403)
-            if urllib.parse.urlsplit(self.path).path != "/api/summarize":
+            path = urllib.parse.urlsplit(self.path).path
+            if path not in ("/api/summarize", "/api/settings"):
                 return self.send_error(404)
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+                if not isinstance(body, dict):
+                    raise ValueError
+            except ValueError:
+                return self.send_error(400)
+            if path == "/api/settings":
+                return self.save_settings(body)
+            try:
                 ids = [i for i in body.get("ids", []) if isinstance(i, str) and VIDEO_ID.fullmatch(i)][:1000]
             except (ValueError, AttributeError):
                 return self.send_error(400)
             config = load_config()
             return self.send_json(JOBS.submit(archive_root(config), config["language"], ids))
+
+        def save_settings(self, body):
+            changes, problem = apply_settings(body)
+            if problem:
+                return self.send_json({"field": problem[0], "error": problem[1]}, 400)
+            restart = "summary.port" in changes
+            self.send_json({"saved": sorted(changes), "restart": restart, "settings": settings_payload()})
+            if restart:  # serve on the new port: start the new server, then end this one
+                import threading
+
+                def move():
+                    spawn_server()
+                    self.server.shutdown()
+                threading.Timer(0.3, move).start()
 
         def do_GET(self):
             # Only pages opened on this computer's own address may read the archive (no DNS rebinding).
@@ -518,9 +720,12 @@ def make_handler(port):
                     return self.send_json({"app": "yt-summary", "pid": os.getpid(), "root": str(root),
                                            "script": SCRIPT_STAMP, "busy": JOBS.busy()})
                 if path == "/api/config":
-                    labels = {**LABELS, **(read_json(labels_file(root, language), {}) or {})}
-                    return self.send_json({"language": language, "labels": labels, "model": config["model"],
+                    shown, labels = page_labels(root, config)
+                    return self.send_json({"language": language, "ui_language": shown, "labels": labels,
+                                           "model": config["model"],
                                            "summarize": claude_command() is not None})
+                if path == "/api/settings":
+                    return self.send_json(settings_payload())
                 if path == "/api/jobs":
                     return self.send_json(JOBS.snapshot())
                 if path == "/api/videos":
@@ -608,8 +813,7 @@ def cmd_config(args):
     changes = {key: value for key, value in changes.items() if value}
     if changes:
         section.update(changes)
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(json.dumps(stored, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        save_config(stored)
     print(json.dumps({
         "config": str(CONFIG_PATH),
         "output_dir": stored.get("output_dir"),

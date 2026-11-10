@@ -87,7 +87,7 @@ Stopping: when the user wants to stop, start no further subagents (stop the runn
 
 ## Phase 5: Viewer labels
 
-`summary.py info <id>` (any video of the archive) prints `labels_to_translate`. When it is not empty, translate those labels into the summary language and add them to `labels_file`: create it if missing, keep the entries it already has. Keep the placeholders `{n}` and `{id}` and the command `/yt-summary` unchanged. This happens once per language, and again only when the viewer gets new labels.
+`summary.py info <id>` (any video of the archive) prints `labels_to_translate`. When it is not empty, translate those labels into the summary language and add them to `labels_file`: create it if missing, keep the entries it already has. Keep the placeholders (`{n}`, `{id}`, `{date}` …) and the command `/yt-summary` unchanged. Labels whose keys end in `_one` and `_other` are plural forms: write every form the language needs by the CLDR plural categories (`_zero`, `_one`, `_two`, `_few`, `_many`, `_other`; Czech and Slovak, for example, use `_one`, `_few`, `_many` and `_other`). This happens once per language, and again only when the viewer gets new labels. English is built in. Each labels file adds its language to the page language choice in the viewer's settings.
 
 ## Phase 6: Open the viewer
 
@@ -108,9 +108,9 @@ Errors:
 ## Page
 
 What the user sees, in case they ask:
-- `/`: all archived videos by channel, newest first, with a search and a filter for videos with a summary; links to the playlists.
+- `/`: the channels of the archive (videos, summaries, newest video), each opening its channel page, and the playlists. The search (`/?q=…`) and the filter for videos with a summary show the matching channels and then the matching videos of all channels, newest first.
 - `/c/<channel_id>`, `/p/<playlist_id>`: one channel (newest first) or one playlist (in its order).
-- `/v/<id>`: the video at the top, staying in view while scrolling; below it the overview, topics and main ideas. A click on a time plays the video from there; the topic and idea being played are highlighted. Without a summary: the chapters, the description, a **Create summary** button and the `/yt-summary <id>` command with a copy button.
+- `/v/<id>`: a thin bar (back to the archive, settings) and the video stay at the top while scrolling; below the video the title and two tabs, which stay right under the video while scrolling: the overview with the video description, and the main ideas. The last chosen tab is remembered in the browser; each tab keeps its scroll position. The topics (or the chapters, without a summary) stay in a column on the right; on a narrow screen they open from a **Topics** button in the bar. A click on a topic plays the video from there, switches to the main ideas and scrolls to the idea of that time; a click on any other time plays the video from there. The topic and idea being played are highlighted. Without a summary: the chapters, the description, a **Create summary** button and the `/yt-summary <id>` command with a copy button.
 - **Create summary** (one video) and **Create missing summaries** (a channel or playlist, after a confirmation) make the server run Claude Code headless (`claude -p`) by ANALYSIS.md, with the model and `parallel` from the config. The page shows the progress and the summary when it is done. It needs the `claude` command signed in; a failed run shows its reason and its log in `~/.yt-skills/jobs/`.
-- Theme: follows the system, switchable to light or dark at the top right.
+- Settings: the gear button at the top right opens the page language (English, or any language with a labels file; it applies at once), the theme (follows the system, or light or dark) and every setting of `~/.yt-skills/config.json`, which the user can change there (a new port moves the server and the page follows it).
 - Older summaries kept by `keep` stay as files next to the video; the page shows the current one.

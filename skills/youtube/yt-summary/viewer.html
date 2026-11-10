@@ -31,12 +31,80 @@
   .meta { color: var(--muted); font-size: .9rem; }
   .back { display: inline-block; color: var(--muted); font-size: .9rem; text-decoration: none; margin-bottom: 4px; }
   .back:hover { color: var(--accent); }
+  .gear { flex-shrink: 0; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; padding: 0; }
+  .gear:hover, .gear[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+  .gear svg { width: 20px; height: 20px; }
+  .settings { position: fixed; z-index: 20; top: 64px; right: max(16px, calc((100vw - 920px) / 2 + 16px));
+    width: min(400px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
+  .settings[hidden] { display: none; }
+  .settings h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 8px; }
+  .settings > h3:first-child { margin-top: 0; }
+  .settings .theme { width: fit-content; }
+  .settings label { display: block; font-size: .9rem; margin: 10px 0 4px; }
+  .settings select#ui-language { margin-bottom: 0; }
+  .settings label.check { display: flex; gap: 8px; align-items: center; }
+  .settings input:not([type="checkbox"]), .settings select { width: 100%; box-sizing: border-box; font: inherit; font-size: .95rem;
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .settings input[aria-invalid="true"] { border-color: var(--accent); }
+  .settings .note { color: var(--muted); font-size: .8rem; margin: 4px 0 0; line-height: 1.4; }
+  .settings .field-error { color: var(--accent); font-size: .82rem; margin: 4px 0 0; }
+  .settings .actions { display: flex; gap: 12px; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .settings .actions button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 7px 16px; cursor: pointer;
+    background: var(--accent); color: #fff; }
+  .settings .actions button:disabled { opacity: .6; cursor: default; }
+  .settings .status { font-size: .88rem; color: var(--muted); }
+  .settings .status.error { color: var(--accent); }
+  .settings .file { color: var(--muted); font-size: .75rem; margin: 10px 0 0; overflow-wrap: anywhere; }
   .theme { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
   .theme button { background: var(--surface); color: var(--muted); border: 0; padding: 6px 10px; font: inherit;
     font-size: .8rem; cursor: pointer; }
   .theme button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 
-  .player { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+  /* Video page: a thin bar and the player stay at the top from the start, so nothing above them scrolls away
+     and the player never moves; the title and details follow below the video. On a wide screen the topics stay
+     in a column on the right; on a narrow one they open from a button in the bar. */
+  .wrap.wide { max-width: 1480px; }
+  .bar { position: sticky; top: 0; z-index: 6; background: var(--bg); height: var(--bar); box-sizing: border-box;
+    display: flex; align-items: center; gap: 10px; }
+  :root { --bar: 52px; }
+  .bar .back { margin: 0 auto 0 0; }
+  .bar .gear { width: 34px; height: 34px; }
+  .toc-toggle { display: none; font: inherit; font-size: .9rem; font-weight: 600; height: 34px; padding: 0 12px;
+    border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .toc-toggle:hover, .toc-toggle[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+  .video-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px); gap: 24px; align-items: start; }
+  .video-layout.no-toc { grid-template-columns: minmax(0, 1fr); }
+  .pinned { position: sticky; top: var(--bar); z-index: 5; background: var(--bg); }
+  .player { padding: 0 0 8px; }
+  header.video-head { padding: 8px 0 4px; }
+  aside.toc { position: sticky; top: var(--bar); max-height: calc(100vh - var(--bar) - 16px); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 10px;
+    box-sizing: border-box; overscroll-behavior: contain; }
+  aside.toc h2 { font-size: 1rem; margin: 0 0 6px; }
+  aside.toc ul.topics { columns: auto; }
+  aside.toc ul.topics li { cursor: pointer; border-radius: 6px; padding: 4px 6px; margin: 0 -6px; line-height: 1.4; }
+  aside.toc ul.topics li:hover { background: var(--accent-soft); }
+  aside.toc ul.topics li.active { background: var(--active); }
+  aside.toc ul.topics li span { font-size: .92rem; }
+  /* Tabs under the video: the overview with the description, and the main ideas. They stay under the player while scrolling. */
+  .tabs { position: sticky; z-index: 4; top: var(--tabs-top, var(--bar)); background: var(--bg); display: flex; gap: 4px;
+    border-bottom: 1px solid var(--border); margin-top: 8px; }
+  .tabs button { font: inherit; font-weight: 600; font-size: .95rem; background: none; border: 0; color: var(--muted);
+    padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs .count { font-weight: 400; color: var(--muted); }
+  [role="tabpanel"][hidden] { display: none; }
+  @media (max-width: 1099px) {
+    .video-layout { grid-template-columns: minmax(0, 1fr); }
+    .toc-toggle { display: block; }
+    aside.toc { display: none; position: fixed; z-index: 15; top: var(--bar); right: 16px; width: min(360px, calc(100vw - 32px));
+      max-height: 65vh; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
+    aside.toc.open { display: block; }
+  }
   .frame { width: min(100%, calc(42vh * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #000;
     border-radius: 10px; overflow: hidden; }
   .frame iframe, .frame #player { width: 100%; height: 100%; border: 0; display: block; }
@@ -67,7 +135,6 @@
   button.action:hover { filter: brightness(1.1); }
   button.action:disabled { opacity: .6; cursor: default; }
   .list-actions button.action { padding: 5px 12px; font-size: .85rem; margin: 8px 0 4px; }
-  details.channel > .list-actions { padding: 0 16px; }
   .job { display: flex; gap: 8px; align-items: center; font-weight: 600; }
   .job.error { color: var(--accent); font-weight: 400; overflow-wrap: anywhere; }
   .badge.working { color: var(--muted); background: var(--border); }
@@ -90,8 +157,13 @@
   .n { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%;
     background: var(--text); color: var(--bg); font-size: .78rem; }
   ul.moments { margin: 0; padding-left: 0; list-style: none; }
-  ul.moments li { padding: 2px 0; }
-  ul.moments a.t { margin-right: 6px; }
+  /* Ideas: every time in one column on the left, the title and quotes next to it. */
+  .idea h3 { display: grid; grid-template-columns: var(--time-col) auto minmax(0, 1fr); gap: 10px; align-items: baseline; }
+  ul.moments li { padding: 2px 0; display: grid; grid-template-columns: var(--time-col) minmax(0, 1fr); gap: 10px;
+    align-items: baseline; }
+  .idea a.t { justify-self: start; }
+  :root { --time-col: 4.8em; }
+  @media (max-width: 600px) { :root { --time-col: 4.3em; } .idea h3 { gap: 8px; } }
   details summary { cursor: pointer; font-weight: 600; }
   .description { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; font-size: .92rem; }
   footer { color: var(--muted); font-size: .8rem; margin-top: 20px; text-align: center; }
@@ -111,21 +183,20 @@
     border-radius: 6px; padding: 0 6px; margin-left: 6px; }
   .empty { color: var(--muted); }
 
-  details.channel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 10px; }
-  details.channel > summary { list-style: none; display: flex; gap: 8px; align-items: center; padding: 12px 16px;
-    cursor: pointer; border-radius: 12px; }
-  details.channel > summary::-webkit-details-marker { display: none; }
-  details.channel > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
-  details.channel[open] > summary::before { transform: rotate(90deg); }
-  details.channel > summary:hover { background: var(--accent-soft); }
-  details.channel > summary .name { font-weight: 600; font-size: 1.05rem; }
-  details.channel > summary .badge { margin-left: 0; }
-  details.channel .channel-page { margin-left: auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
-  details.channel .channel-page:hover { color: var(--accent); }
-  details.channel > ul.videos { padding: 0 16px 8px; border-top: 1px solid var(--border); }
+  ul.channels { list-style: none; padding: 0; margin: 0; }
+  ul.channels li + li { border-top: 1px solid var(--border); }
+  ul.channels a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 4px;
+    text-decoration: none; border-radius: 8px; }
+  ul.channels .info { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+  ul.channels a:hover { background: var(--accent-soft); }
+  ul.channels a:hover .name { color: var(--accent); }
+  ul.channels .name { font-weight: 600; font-size: 1.05rem; }
+  ul.channels .badge { margin-left: 0; }
+  ul.channels .chevron { color: var(--muted); font-size: 1.2rem; line-height: 1; }
+  section > h2 .meta { font-weight: 400; }
 
   @media (max-width: 600px) {
-    header.top { flex-direction: column; }
+    .settings { top: 60px; }
     section { padding: 14px; }
     ul.videos img { width: 88px; }
   }
@@ -133,6 +204,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<div class="settings" id="settings" role="dialog" hidden></div>
 
 <script>
   const app = document.getElementById("app");
@@ -168,6 +240,169 @@
   }
   const themeSwitch = () => `<div class="theme" role="group">${["auto", "light", "dark"].map(c =>
     `<button data-theme-choice="${c}">${esc(label("theme_" + c))}</button>`).join("")}</div>`;
+  const GEAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+  const settingsButton = () => `<button class="gear" data-settings aria-haspopup="dialog" aria-expanded="false"
+    aria-label="${esc(label("settings"))}" title="${esc(label("settings"))}">${GEAR}</button>`;
+
+  // ---------- settings: the theme (this browser) and the shared config file ----------
+  const settingsPanel = document.getElementById("settings");
+  function closeSettings() {
+    settingsPanel.hidden = true;
+    document.querySelectorAll("[data-settings]").forEach(b => b.setAttribute("aria-expanded", "false"));
+  }
+  // A language in its own name ("English", "Deutsch"), so it can be found whatever the page language is.
+  function languageName(code) {
+    try {
+      const name = new Intl.DisplayNames([code], {type: "language"}).of(code);
+      return name && name !== code ? `${name[0].toLocaleUpperCase(code)}${name.slice(1)}` : code;
+    } catch (e) { return code; }
+  }
+  async function openSettings() {
+    let data;
+    try { data = await getJson("/api/settings"); } catch (e) { return; }
+    const sm = data.summary, f = data.fetch;
+    const models = data.models.includes(sm.model) ? data.models : [...data.models, sm.model];
+    const field = (name, title, input, note = "") => `<div data-field="${name}"><label for="s-${name}">${esc(title)}</label>${input}
+      ${note ? `<p class="note">${esc(note)}</p>` : ""}<p class="field-error" hidden></p></div>`;
+    settingsPanel.setAttribute("aria-label", label("settings"));
+    settingsPanel.innerHTML = `
+      <h3>${esc(label("settings_appearance"))}</h3>
+      <label for="ui-language">${esc(label("settings_ui_language"))}</label>
+      <select id="ui-language">${data.ui_languages.map(code =>
+        `<option value="${esc(code)}"${code === data.ui_language ? " selected" : ""}>${esc(languageName(code))}</option>`).join("")}</select>
+      <p class="note">${esc(label("settings_ui_language_note"))}</p><p class="field-error" id="ui-language-error" hidden></p>
+      <label>${esc(label("settings_theme"))}</label>${themeSwitch()}<p class="note">${esc(label("settings_theme_note"))}</p>
+      <form id="settings-form" novalidate>
+        <h3>${esc(label("settings_summary"))}</h3>
+        ${field("summary.language", label("settings_language"),
+          `<input id="s-summary.language" value="${esc(sm.language)}" autocomplete="off" spellcheck="false">`, label("settings_language_note"))}
+        ${field("summary.model", label("settings_model"), `<select id="s-summary.model">${models.map(m =>
+          `<option value="${esc(m)}"${m === sm.model ? " selected" : ""}>${esc(m === "inherit" ? label("settings_model_inherit") : m[0].toUpperCase() + m.slice(1))}</option>`).join("")}</select>`)}
+        ${field("summary.parallel", label("settings_parallel"),
+          `<input id="s-summary.parallel" type="number" min="1" max="10" value="${esc(sm.parallel)}">`)}
+        <h3>${esc(label("settings_server"))}</h3>
+        ${field("summary.port", label("settings_port"),
+          `<input id="s-summary.port" type="number" min="1024" max="65535" value="${esc(sm.port)}">`, label("settings_port_note"))}
+        <h3>${esc(label("settings_archive"))}</h3>
+        ${field("output_dir", label("settings_output_dir"),
+          `<input id="s-output_dir" value="${esc(data.output_dir || "")}" autocomplete="off" spellcheck="false">`, label("settings_output_dir_note"))}
+        ${field("fetch.caption_fallback_languages", label("settings_fallback"),
+          `<input id="s-fetch.caption_fallback_languages" value="${esc((f.caption_fallback_languages || []).join(", "))}" autocomplete="off" spellcheck="false">`,
+          label("settings_fallback_note"))}
+        ${data.windows ? `<div data-field="fetch.explorer_names"><label class="check"><input type="checkbox" id="s-fetch.explorer_names"${f.explorer_names ? " checked" : ""}>
+          ${esc(label("settings_explorer_names"))}</label><p class="field-error" hidden></p></div>` : ""}
+        <div class="actions"><button type="submit">${esc(label("settings_save"))}</button><span class="status" role="status"></span></div>
+        <p class="file">${esc(label("settings_file", {path: data.config}))}</p>
+      </form>`;
+    applyTheme(currentTheme());
+    const gear = document.querySelector("[data-settings]");
+    if (gear) {
+      const r = gear.getBoundingClientRect();
+      settingsPanel.style.top = `${Math.round(r.bottom + 8)}px`;
+      settingsPanel.style.right = `${Math.max(16, Math.round(document.documentElement.clientWidth - r.right))}px`;
+    }
+    settingsPanel.hidden = false;
+    document.querySelectorAll("[data-settings]").forEach(b => b.setAttribute("aria-expanded", "true"));
+  }
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-settings]")) {
+      settingsPanel.hidden ? openSettings() : closeSettings();
+    } else if (!settingsPanel.hidden && !settingsPanel.contains(e.target)) {
+      closeSettings();
+    }
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !settingsPanel.hidden) closeSettings(); });
+  settingsPanel.addEventListener("submit", async e => {
+    e.preventDefault();
+    const form = e.target, value = name => form.querySelector(`[id="s-${name}"]`);
+    const status = form.querySelector(".status"), button = form.querySelector("button[type=submit]");
+    form.querySelectorAll(".field-error").forEach(el => { el.hidden = true; });
+    form.querySelectorAll("[aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
+    status.className = "status"; status.textContent = "";
+    const body = {
+      output_dir: value("output_dir").value,
+      summary: {language: value("summary.language").value, model: value("summary.model").value,
+                parallel: value("summary.parallel").value, port: value("summary.port").value},
+      fetch: {caption_fallback_languages: value("fetch.caption_fallback_languages").value},
+    };
+    if (value("fetch.explorer_names")) body.fetch.explorer_names = value("fetch.explorer_names").checked;
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/settings", {method: "POST",
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify(body)});
+      const result = response.headers.get("Content-Type")?.includes("json") ? await response.json() : {};
+      if (response.status === 400 && result.field) {
+        const box = form.querySelector(`[data-field="${result.field}"]`);
+        const message = box.querySelector(".field-error");
+        message.textContent = label(result.error); message.hidden = false;
+        box.querySelector("input, select")?.setAttribute("aria-invalid", "true");
+        box.querySelector("input, select")?.focus();
+        return;
+      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (result.restart) {
+        const port = result.settings.summary.port;
+        status.textContent = label("settings_moving", {port});
+        return moveToPort(port, status);
+      }
+      if (!result.saved.length) { status.textContent = label("settings_unchanged"); return; }
+      // Language or archive folder: the page shows other data now. Otherwise only the labels and model are refreshed.
+      if (result.saved.some(k => k === "summary.language" || k === "output_dir")) return location.reload();
+      CONFIG = await getJson("/api/config"); L = CONFIG.labels;
+      status.textContent = label("settings_saved");
+    } catch (err) {
+      status.className = "status error";
+      status.textContent = label("settings_error", {error: err.message});
+    } finally {
+      button.disabled = false;
+    }
+  });
+  // The page language is saved and applied at once: the page and this menu are drawn again in the new language,
+  // keeping what was typed in the form and not saved yet.
+  settingsPanel.addEventListener("change", async e => {
+    if (e.target.id !== "ui-language") return;
+    const select = e.target, error = document.getElementById("ui-language-error");
+    const kept = [...settingsPanel.querySelectorAll("#settings-form [id^='s-']")]
+      .map(el => [el.id, el.type === "checkbox" ? el.checked : el.value]);
+    const panelScroll = settingsPanel.scrollTop;
+    select.disabled = true; error.hidden = true;
+    try {
+      const response = await fetch("/api/settings", {method: "POST",
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN},
+        body: JSON.stringify({summary: {ui_language: select.value}})});
+      if (!response.ok) {
+        const result = response.headers.get("Content-Type")?.includes("json") ? await response.json() : {};
+        throw new Error(result.error ? label(result.error) : `HTTP ${response.status}`);
+      }
+      CONFIG = await getJson("/api/config"); L = CONFIG.labels;
+      document.documentElement.lang = CONFIG.ui_language;
+      history.replaceState({scroll: window.scrollY}, "");
+      await route();
+      await openSettings();
+      kept.forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el[el.type === "checkbox" ? "checked" : "value"] = value;
+      });
+      settingsPanel.scrollTop = panelScroll;
+      document.getElementById("ui-language").focus({preventScroll: true});
+    } catch (err) {
+      select.disabled = false;
+      error.textContent = label("settings_error", {error: err.message}); error.hidden = false;
+    }
+  });
+  async function moveToPort(port, status) {
+    const origin = `${location.protocol}//${location.hostname}:${port}`;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        await fetch(`${origin}/api/health`, {mode: "no-cors", cache: "no-store"});
+        location.href = origin + location.pathname;
+        return;
+      } catch (e) {}
+    }
+    status.className = "status error";
+    status.textContent = label("settings_move_failed", {port});
+  }
   document.addEventListener("click", e => {
     const b = e.target.closest("[data-theme-choice]");
     if (!b) return;
@@ -182,11 +417,13 @@
     const match = location.pathname.match(/^\/([vcp])\/([\w-]+)$/);
     const scroll = (history.state && history.state.scroll) || 0;
     stopPlayer();
+    closeSettings();
+    app.classList.remove("wide");
     window.scrollTo(0, 0);
     const page = !match ? showArchive({kind: "all"})
       : match[1] === "v" ? showVideo(match[2])
       : showArchive({kind: match[1] === "c" ? "channel" : "playlist", id: match[2]});
-    page.then(() => { applyTheme(currentTheme()); window.scrollTo(0, scroll); });
+    return page.then(() => { applyTheme(currentTheme()); window.scrollTo(0, scroll); });
   }
   document.addEventListener("click", e => {
     const link = e.target.closest("a[data-nav]");
@@ -198,16 +435,36 @@
   });
   window.addEventListener("popstate", route);
 
-  // ---------- archive, one channel or one playlist ----------
+  // ---------- archive (the channels, or search results across them), one channel or one playlist ----------
+  // The search and the filter are part of the address (?q=…&summaries=1), so going back from a video returns to them.
   let filter = {text: "", onlySummaries: false};
   let scope = {kind: "all"}, playlists = [], scoped = [];
-  // Channels the user opened on the archive page; every load starts with all collapsed,
-  // going back from a video keeps them as they were.
-  const openChannels = new Set();
+
+  // Labels with a count: <key>_one, <key>_few, … by the plural rules of the page language, <key>_other as fallback.
+  function plural(key, n) {
+    let rule = "other";
+    try { rule = new Intl.PluralRules(document.documentElement.lang || "en").select(n); } catch (e) {}
+    return (L[`${key}_${rule}`] || L[`${key}_other`] || key).replace("{n}", n);
+  }
+  // Search ignores case and diacritics: "cafe" finds "Café".
+  const plain = text => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  function readFilter() {
+    const params = new URLSearchParams(location.search);
+    filter = {text: params.get("q") || "", onlySummaries: params.get("summaries") === "1"};
+  }
+  function writeFilter() {
+    const params = new URLSearchParams();
+    if (filter.text.trim()) params.set("q", filter.text.trim());
+    if (filter.onlySummaries) params.set("summaries", "1");
+    const query = params.toString();
+    history.replaceState(history.state, "", location.pathname + (query ? `?${query}` : ""));
+  }
 
   async function showArchive(newScope) {
     scope = newScope;
     pageKind = "archive";
+    readFilter();
     [videos, playlists] = await Promise.all([getJson("/api/videos"), getJson("/api/playlists")]);
     let title = label("archive");
     if (scope.kind === "channel") {
@@ -224,7 +481,7 @@
     const back = scope.kind === "all" ? "" : `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
     if (title === null) {
       document.title = label("list_not_found");
-      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("list_not_found"))}</h1></div>${themeSwitch()}</header>`;
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("list_not_found"))}</h1></div>${settingsButton()}</header>`;
       return;
     }
     document.title = title;
@@ -234,72 +491,79 @@
         <div>${back}<h1>${esc(title)}</h1>
           <div class="meta">${esc(label("video_count", {n: scoped.length}))} · ${esc(label("summary_count", {n: withSummary}))}<span id="jobs-indicator"></span></div>
           ${scope.kind === "all" ? "" : `<div class="list-actions">${summarizeListButton(scoped)}</div>`}</div>
-        ${themeSwitch()}
+        ${settingsButton()}
       </header>
       <div class="filters">
-        <input type="search" id="q" placeholder="${esc(label("search"))}" value="${esc(filter.text)}">
+        <input type="search" id="q" placeholder="${esc(label(scope.kind === "all" ? "search_all" : "search"))}" value="${esc(filter.text)}">
         <label><input type="checkbox" id="only" ${filter.onlySummaries ? "checked" : ""}> ${esc(label("only_summaries"))}</label>
       </div>
       <div id="list"></div>`;
-    document.getElementById("q").addEventListener("input", e => { filter.text = e.target.value; renderList(); });
-    document.getElementById("only").addEventListener("change", e => { filter.onlySummaries = e.target.checked; renderList(); });
+    document.getElementById("q").addEventListener("input", e => { filter.text = e.target.value; writeFilter(); renderList(); });
+    document.getElementById("only").addEventListener("change", e => { filter.onlySummaries = e.target.checked; writeFilter(); renderList(); });
     renderList();
     showJobsIndicator();
   }
 
-  const videoList = list => `<ul class="videos">${list.map(v => `
+  const videoList = (list, withChannel = false) => `<ul class="videos">${list.map(v => `
     <li><a href="/v/${esc(v.id)}" data-nav>
       <img src="/api/thumb/${esc(v.id)}" alt="" loading="lazy">
       <span><span class="title">${esc(v.title)}${v.summary ? `<span class="badge">${esc(label("summary_badge"))}</span>`
         : isActive(v.id) ? `<span class="badge working">${esc(label("badge_working"))}</span>` : ""}</span>
-        <span class="meta">${esc(v.upload_date)} · ${hms(v.duration)}</span></span>
+        <span class="meta">${withChannel ? `${esc(v.channel)} · ` : ""}${esc(day(v.upload_date))} · ${hms(v.duration)}</span></span>
     </a></li>`).join("")}
   </ul>`;
 
-  function renderList() {
-    const words = filter.text.toLowerCase().split(/\s+/).filter(Boolean);
-    let shown = scoped
-      .filter(v => !filter.onlySummaries || v.summary)
-      .filter(v => words.every(w => (v.title + " " + v.channel).toLowerCase().includes(w)));
-    const list = document.getElementById("list");
-    if (!shown.length) { list.innerHTML = `<p class="empty">${esc(label("no_results"))}</p>`; return; }
-    if (scope.kind === "playlist") { list.innerHTML = `<section>${videoList(shown)}</section>`; return; }  // playlist order
-
-    shown = shown.slice().sort((a, b) => b.upload_date.localeCompare(a.upload_date));
-    if (scope.kind === "channel") { list.innerHTML = `<section>${videoList(shown)}</section>`; return; }
-
+  // The channels of the archive, from the videos (a channel shows up once it has a video).
+  function channelsOf(list) {
     const channels = new Map();
-    for (const v of shown) {
+    for (const v of list) {
       if (!channels.has(v.channel_id)) channels.set(v.channel_id, {id: v.channel_id, name: v.channel, videos: []});
       channels.get(v.channel_id).videos.push(v);
     }
-    const sorted = [...channels.values()].sort((a, b) => a.name.localeCompare(b.name));
-    const playlistLinks = playlists.length && !words.length && !filter.onlySummaries ? `
-      <section><h2>${esc(label("playlists"))}</h2>
-        <ul class="topics">${playlists.map(p => `<li><a href="/p/${esc(p.id)}" data-nav>${esc(p.title)}</a>
-          <span class="meta">(${p.videos.length})</span></li>`).join("")}</ul>
-      </section>` : "";
-    // Channels start collapsed; while searching or filtering, the ones with matches open by themselves.
+    return [...channels.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const channelRows = channels => `<ul class="channels">${channels.map(c => {
+    const summaries = c.videos.filter(v => v.summary).length;
+    const newest = c.videos.reduce((max, v) => v.upload_date > max ? v.upload_date : max, "");
+    return `<li><a href="/c/${esc(c.id)}" data-nav><span class="info">
+      <span class="name">${esc(c.name)}</span>
+      <span class="meta">${esc(plural("channel_videos", c.videos.length))}</span>
+      ${summaries ? `<span class="badge">${esc(label("summary_badge"))} ${summaries}</span>` : ""}
+      ${newest ? `<span class="meta">${esc(label("newest", {date: day(newest)}))}</span>` : ""}</span>
+      <span class="chevron" aria-hidden="true">›</span></a></li>`;
+  }).join("")}</ul>`;
+
+  function renderList() {
+    const words = plain(filter.text).split(/\s+/).filter(Boolean);
+    const list = document.getElementById("list");
     const searching = words.length > 0 || filter.onlySummaries;
-    list.innerHTML = playlistLinks + sorted.map(c => {
-      const summaries = c.videos.filter(v => v.summary).length;
-      return `
-      <details class="channel" data-channel="${esc(c.id)}" ${searching || openChannels.has(c.id) ? "open" : ""}>
-        <summary>
-          <span class="name">${esc(c.name)}</span>
-          <span class="meta">(${c.videos.length})</span>
-          ${summaries ? `<span class="badge">${esc(label("summary_badge"))} ${summaries}</span>` : ""}
-          <a class="channel-page" href="/c/${esc(c.id)}" data-nav title="${esc(c.name)}">↗</a>
-        </summary>
-        ${searching ? "" : `<div class="list-actions">${summarizeListButton(c.videos)}</div>`}
-        ${videoList(c.videos)}
-      </details>`;
-    }).join("");
-    if (!searching) {
-      list.querySelectorAll("details.channel").forEach(d => d.addEventListener("toggle", () => {
-        if (d.open) openChannels.add(d.dataset.channel); else openChannels.delete(d.dataset.channel);
-      }));
+    let shown = scoped
+      .filter(v => !filter.onlySummaries || v.summary)
+      .filter(v => words.every(w => plain(v.title + " " + v.channel).includes(w)));
+
+    // The archive without a search: the channels (each opens its own page) and the playlists.
+    if (scope.kind === "all" && !searching) {
+      list.innerHTML = `<section>${channelRows(channelsOf(videos))}</section>` + (playlists.length ? `
+        <section><h2>${esc(label("playlists"))}</h2>
+          <ul class="topics">${playlists.map(p => `<li><a href="/p/${esc(p.id)}" data-nav>${esc(p.title)}</a>
+            <span class="meta">(${p.videos.length})</span></li>`).join("")}</ul>
+        </section>` : "");
+      return;
     }
+    // The archive with a search: the channels whose name matches, then the matching videos of all channels, newest first.
+    if (scope.kind === "all") {
+      const channels = words.length ? channelsOf(videos.filter(v => !filter.onlySummaries || v.summary))
+        .filter(c => words.every(w => plain(c.name).includes(w))) : [];
+      shown = shown.slice().sort((a, b) => b.upload_date.localeCompare(a.upload_date));
+      list.innerHTML = (channels.length ? `<section><h2>${esc(label("channels"))}</h2>${channelRows(channels)}</section>` : "")
+        + (shown.length ? `<section><h2>${esc(label("videos"))} <span class="meta">(${shown.length})</span></h2>${videoList(shown, true)}</section>` : "")
+        || `<p class="empty">${esc(label("no_results"))}</p>`;
+      return;
+    }
+    if (!shown.length) { list.innerHTML = `<p class="empty">${esc(label("no_results"))}</p>`; return; }
+    if (scope.kind === "playlist") { list.innerHTML = `<section>${videoList(shown, true)}</section>`; return; }  // playlist order
+    shown = shown.slice().sort((a, b) => b.upload_date.localeCompare(a.upload_date));
+    list.innerHTML = `<section>${videoList(shown)}</section>`;
   }
 
   // ---------- one video ----------
@@ -324,7 +588,7 @@
     const back = `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
     if (v.error) {
       document.title = label("not_found");
-      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("not_found"))}</h1></div>${themeSwitch()}</header>`;
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("not_found"))}</h1></div>${settingsButton()}</header>`;
       return;
     }
     document.title = v.title;
@@ -333,16 +597,19 @@
       esc(day(v.upload_date)), hms(v.duration)].filter(Boolean).join(" · ");
 
     const topics = s ? s.topics.map(t => [t.start, t.title]) : (v.chapters || []).map(c => [c.start_time, c.title]);
-    const topicsHtml = topics.length ? `
-      <section><h2>${esc(label(s ? "topics" : "chapters"))}</h2>
-        <ul class="topics">${topics.map(([t, title]) => `<li>${timeLink(t)} <span>${esc(title)}</span></li>`).join("")}</ul>
-      </section>` : "";
+    const topicsTitle = label(s ? "topics" : "chapters");
+    const tocHtml = topics.length ? `
+      <aside class="toc" id="toc" aria-label="${esc(topicsTitle)}"><h2>${esc(topicsTitle)}</h2>
+        <ul class="topics">${topics.map(([t, title]) => `<li data-t="${seconds(t)}">${timeLink(t)} <span>${esc(title)}</span></li>`).join("")}</ul>
+      </aside>` : "";
+    let tab = "overview";
+    try { if (localStorage.getItem("yt-summary-tab") === "ideas") tab = "ideas"; } catch (e) {}
 
     const ideasHtml = s ? `
-      <section class="ideas"><h2>${esc(label("ideas"))}</h2>
+      <section class="ideas">
         ${s.ideas.map((idea, i) => `
           <article class="idea" data-t="${seconds(idea.start)}">
-            <h3><span class="n">${i + 1}</span>${esc(idea.title)} ${timeLink(idea.start)}</h3>
+            <h3>${timeLink(idea.start)}<span class="n">${i + 1}</span><span>${esc(idea.title)}</span></h3>
             ${paragraphs(idea.summary)}
             ${idea.reasoning ? `<h4>${esc(label("reasoning"))}</h4>${paragraphs(idea.reasoning)}` : ""}
             ${idea.moments && idea.moments.length ? `<h4>${esc(label("moments"))}</h4>
@@ -350,28 +617,92 @@
           </article>`).join("")}
       </section>` : "";
 
+    const descriptionHtml = v.description ? `<section><details><summary>${esc(label("description"))}</summary>
+        <div class="description">${richText(v.description)}</div></details></section>` : "";
     const transcript = v.transcript ? ` (${v.transcript.language}, ${v.transcript.kind})` : "";
+    app.classList.toggle("wide", Boolean(topics.length));
     app.innerHTML = `
-      <header class="top">
-        <div>${back}<h1>${esc(v.title)}</h1>
-          <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div></div>
-        ${themeSwitch()}
+      <div class="bar">${back}
+        ${topics.length ? `<button type="button" class="toc-toggle" aria-controls="toc" aria-expanded="false">${esc(topicsTitle)} ▾</button>` : ""}
+        ${settingsButton()}</div>
+      <div class="video-layout${topics.length ? "" : " no-toc"}"><div class="main">
+      <div class="pinned">
+        <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
+      </div>
+      <header class="video-head"><h1>${esc(v.title)}</h1>
+        <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div>
       </header>
-      <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
-      ${s ? `<section><h2>${esc(label("overview"))}</h2>${paragraphs(s.overview)}</section>`
-          : `<section class="notice"><p>${esc(label("no_summary"))}</p>
+      ${s ? `
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" data-tab="overview">${esc(label("overview"))}</button>
+        <button type="button" role="tab" id="tab-ideas" aria-controls="panel-ideas" data-tab="ideas">${esc(label("ideas"))} <span class="count">(${s.ideas.length})</span></button>
+      </div>
+      <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+        <section>${paragraphs(s.overview)}</section>
+        ${descriptionHtml}
+      </div>
+      <div role="tabpanel" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}</div>`
+      : `<section class="notice"><p>${esc(label("no_summary"))}</p>
               ${CONFIG.summarize && v.transcript ? `<div id="job-box"></div>` : ""}
               <p class="meta">${esc(label("no_summary_command"))}</p>
               <div class="command"><code>/yt-summary ${esc(id)}</code>
-                <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>`}
-      ${topicsHtml}
-      ${ideasHtml}
-      ${v.description ? `<section><details><summary>${esc(label("description"))}</summary>
-        <div class="description">${richText(v.description)}</div></details></section>` : ""}
-      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}</footer>` : ""}`;
+                <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>
+      ${descriptionHtml}`}
+      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}</footer>` : ""}
+      </div>${tocHtml}</div>`;
+    tabScroll = {};
+    if (s) { showTab(tab); pinTabs(); }
     startPlayer(id);
     showJobBox();
   }
+
+  // ---------- tabs of the video page ----------
+  // The tabs stick right under the player; each tab keeps its own scroll position.
+  let tabScroll = {}, pinnedObserver = null;
+  // The player stays at the top from the start, so its bottom edge is where the tabs stick.
+  const playerBottom = () => document.querySelector(".pinned")?.getBoundingClientRect().bottom ?? 0;
+  function placeTabs() {
+    const tabs = document.querySelector(".tabs");
+    if (tabs) tabs.style.setProperty("--tabs-top", `${Math.round(playerBottom())}px`);
+  }
+  function pinTabs() {
+    const pinned = document.querySelector(".pinned");
+    placeTabs();
+    pinnedObserver?.disconnect();
+    if (pinned) (pinnedObserver = new ResizeObserver(placeTabs)).observe(pinned);
+  }
+  window.addEventListener("resize", placeTabs);
+  const currentTab = () => document.querySelector('.tabs [aria-selected="true"]')?.dataset.tab;
+  // Scroll position where the tabs reach the player and stick there.
+  function tabsStickAt() {
+    const head = document.querySelector("header.video-head");
+    return head.getBoundingClientRect().bottom + window.scrollY + 8 - playerBottom();
+  }
+  function showTab(name, keepScroll = false) {
+    placeTabs();
+    const before = currentTab(), stick = tabsStickAt();
+    if (before) tabScroll[before] = window.scrollY;
+    document.querySelectorAll(".tabs [role=tab]").forEach(b => {
+      const on = b.dataset.tab === name;
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+      document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
+    });
+    try { localStorage.setItem("yt-summary-tab", name); } catch (e) {}
+    // Below the tabs, start the other tab where it was left (at least at its top), not somewhere in the middle.
+    if (!keepScroll && before && before !== name && window.scrollY >= stick - 1) window.scrollTo(0, Math.max(stick, tabScroll[name] ?? stick));
+  }
+  document.addEventListener("click", e => {
+    const button = e.target.closest(".tabs [role=tab]");
+    if (button) showTab(button.dataset.tab);
+  });
+  document.addEventListener("keydown", e => {
+    const button = e.target.closest(".tabs [role=tab]");
+    if (!button || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    const other = button.parentElement.querySelector(`[role=tab]:not([data-tab="${button.dataset.tab}"])`);
+    showTab(other.dataset.tab);
+    other.focus();
+  });
 
   // ---------- summaries started from this page: the server runs Claude Code in the background ----------
   let jobs = {}, jobsTimer = null;
@@ -494,6 +825,49 @@
     player.playVideo();
   });
 
+  // Topics panel: a click on a topic plays the video from it and scrolls the summary to the idea of that time.
+  function closeToc() {
+    document.getElementById("toc")?.classList.remove("open");
+    document.querySelector(".toc-toggle")?.setAttribute("aria-expanded", "false");
+  }
+  document.addEventListener("click", e => {
+    const toggle = e.target.closest(".toc-toggle"), toc = document.getElementById("toc");
+    if (toggle && toc) {
+      const open = !toc.classList.contains("open");
+      toc.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      return;
+    }
+    const item = e.target.closest("aside.toc li[data-t]");
+    if (!item) {
+      if (toc && toc.classList.contains("open") && !toc.contains(e.target)) closeToc();
+      return;
+    }
+    e.preventDefault();  // also for the time link: the same seek, plus the scroll
+    const t = Number(item.dataset.t);
+    if (ready && player) { player.seekTo(t, true); player.playVideo(); }
+    else if (!e.target.closest("a.t")) window.open(item.querySelector("a.t").href, "_blank", "noopener");
+    else window.open(e.target.closest("a.t").href, "_blank", "noopener");
+    document.querySelectorAll("aside.toc li").forEach(li => li.classList.toggle("active", li === item));
+    scrollToIdea(t);
+    closeToc();
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeToc(); });
+
+  // The idea a topic belongs to: the one going on at the topic's start (a few seconds of tolerance), as the
+  // highlight of the idea being played marks it; before the first idea, the first one.
+  function scrollToIdea(start) {
+    const ideas = [...document.querySelectorAll(".idea")].map(el => [Number(el.dataset.t), el]).sort((a, b) => a[0] - b[0]);
+    const target = (ideas.filter(([t]) => t <= start + 5).pop() || ideas[0] || [])[1];
+    if (!target) return;
+    if (document.querySelector(".tabs") && currentTab() !== "ideas") showTab("ideas", true);
+    placeTabs();
+    const covered = playerBottom() + (document.querySelector(".tabs")?.offsetHeight ?? 0);
+    window.scrollTo({top: target.getBoundingClientRect().top + window.scrollY - covered - 12,
+                     behavior: document.visibilityState === "visible" ? "smooth" : "auto"});
+    document.querySelectorAll(".idea").forEach(el => el.classList.toggle("active", el === target));
+  }
+
   // Copy buttons: put their text on the clipboard and confirm it on the button for a moment.
   document.addEventListener("click", async e => {
     const button = e.target.closest("button[data-copy]");
@@ -524,6 +898,11 @@
     if (player.getPlayerState() !== YT.PlayerState.PLAYING) return;
     const now = player.getCurrentTime();
     mark("ul.topics li", li => Number(li.querySelector("a.t").dataset.t), now);
+    const toc = document.getElementById("toc"), active = toc && toc.querySelector("li.active");
+    if (active && toc.scrollHeight > toc.clientHeight) {
+      const a = active.getBoundingClientRect(), box = toc.getBoundingClientRect();
+      if (a.top < box.top || a.bottom > box.bottom) toc.scrollTop += a.top - box.top - box.height / 3;
+    }
     mark(".idea", el => Number(el.dataset.t), now);
   }, 1000);
 
@@ -533,7 +912,7 @@
     CONFIG = config;
     try { jobs = await getJson("/api/jobs"); } catch (e) {}
     refreshJobs();
-    document.documentElement.lang = config.language;
+    document.documentElement.lang = config.ui_language;
     route();
   });
 </script>
