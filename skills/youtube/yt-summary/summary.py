@@ -150,6 +150,68 @@ LABELS = {
     "flow_kind_dense": "Content: dense",
     "flow_ideas": "Main idea",
     "highlight": "Don't miss",
+    "add": "Add videos",
+    "add_title": "Add videos to the archive",
+    "add_hint": "Links to videos, playlists or channels, one per line, or words to search YouTube for",
+    "add_placeholder": "https://www.youtube.com/@channel\nor: Karpathy tokenizer",
+    "add_note": "Nothing is downloaded before you confirm the overview. Ctrl+Enter continues.",
+    "add_next": "Continue",
+    "add_back": "Back",
+    "add_close": "Close",
+    "add_searching": "Searching YouTube…",
+    "add_surveying": "Finding out what the link holds…",
+    "add_error": "Failed: {error}",
+    "add_results": "Found on YouTube: {query}",
+    "add_no_results": "YouTube found nothing for: {query}",
+    "add_in_archive": "In the archive",
+    "add_live": "Live or upcoming",
+    "add_views": "{n} views",
+    "add_selected": "Add selected ({n})",
+    "add_picked_title": "Selected videos ({n})",
+    "add_kind_video": "Video",
+    "add_kind_channel": "Channel",
+    "add_kind_playlist": "Playlist",
+    "add_type_video": "Videos",
+    "add_type_short": "Shorts",
+    "add_type_stream": "Streams",
+    "add_type_podcast": "Podcasts",
+    "add_type_unknown": "Unknown type",
+    "add_skipped": "skipped",
+    "add_col_count": "Count",
+    "add_col_time": "Length",
+    "add_total": "Total",
+    "add_since": "Published since",
+    "add_refilter": "Update overview",
+    "add_known": "Already in the archive, skipped: {n}",
+    "add_unavailable": "Unavailable (private or deleted): {n}",
+    "add_no_duration": "\"+\" and \"?\": YouTube gives no length for some videos (mostly shorts).",
+    "add_since_note": "The publish date is checked only when downloading, so the counts are an upper bound.",
+    "add_estimate": "Estimated time: about {n} min",
+    "add_nothing": "Nothing new to download.",
+    "add_sample": "Sample ({n} most viewed)",
+    "add_download_all": "Download all ({n})",
+    "add_download_sample": "Sample only ({n})",
+    "add_download_video": "Download",
+    "add_check_video": "Check for changes",
+    "add_whole_playlist": "The whole playlist instead",
+    "add_video_in_archive": "Already in the archive; downloading again checks it for changes.",
+    "add_video_not_yet": "Cannot be downloaded yet (premiere or live stream in progress).",
+    "add_transcript": "Transcript: {language}, {kind}",
+    "add_captions_manual": "manual captions",
+    "add_captions_auto": "automatic captions",
+    "add_no_transcript": "No transcript: only the description and details are saved.",
+    "add_target": "Saved to {path}",
+    "add_summarize": "Then create summaries",
+    "add_summarize_note": "For the new videos with a transcript, on your Claude account (model {model}).",
+    "add_started": "Added to the downloads.",
+    "add_downloads": "Downloads",
+    "add_dl_queued": "Waiting…",
+    "add_dl_starting": "Downloading…",
+    "add_dl_running": "Downloading {done}/{total}",
+    "add_dl_done_one": "Done, {n} new video",
+    "add_dl_done_other": "Done, {n} new videos",
+    "add_dl_summaries": "summaries queued: {n}",
+    "add_dl_error": "Stopped: {error}",
     "theme_auto": "Auto",
     "theme_light": "Light",
     "theme_dark": "Dark",
@@ -787,6 +849,182 @@ class Jobs:
 
 
 JOBS = Jobs()
+# ---------- adding videos from the viewer: it runs the yt-fetch skill's script ----------
+FETCH_TIMEOUT = 5 * 60  # a search or an overview; downloads have no limit
+FETCH_TYPES = ("video", "short", "stream", "podcast")
+PLAN_NAME = re.compile(r"plan-\d{8}-\d{6}\.json")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def fetch_command():
+    """[python, fetch.py] of the installed yt-fetch skill (with its own Python), or None."""
+    for folder in (Path.home() / ".claude" / "skills" / "yt-fetch", SCRIPT.parent.parent / "yt-fetch"):
+        script = folder / "fetch.py"
+        python = folder / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        if script.exists() and python.exists():
+            return [str(python), str(script)]
+    return None
+
+
+def fetch_process(args, **options):
+    return subprocess.Popen(fetch_command() + args, stdin=subprocess.DEVNULL, text=True, encoding="utf-8",
+                            errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0, **options)
+
+
+def last_line(text, fallback):
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return (lines[-1].removeprefix("ERROR: ") if lines else fallback)[:400]
+
+
+def run_fetch(args):
+    """A fetch.py command that prints JSON (search, survey --json): (data, None) or (None, what went wrong)."""
+    if not fetch_command():
+        return None, "yt-fetch is not installed"
+    process = fetch_process(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        out, err = process.communicate(timeout=FETCH_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        return None, f"YouTube did not answer in {FETCH_TIMEOUT // 60} minutes"
+    if process.returncode == 0:
+        try:
+            return json.loads(out), None
+        except ValueError:
+            pass
+    return None, last_line(out + "\n" + err, f"fetch.py ended with code {process.returncode}")
+
+
+def archived_ids(root):
+    try:
+        with (root / "index.csv").open(encoding="utf-8", newline="") as f:
+            return {row["video_id"] for row in csv.DictReader(f)}
+    except OSError:
+        return set()
+
+
+class Downloads:
+    """Videos added in the viewer: downloads by yt-fetch, one at a time (YouTube limits fast requests)."""
+
+    def __init__(self):
+        import queue
+        import threading
+        self.lock = threading.Lock()
+        self.queue = queue.Queue()
+        self.items = []  # newest last: {"id", "title", "state", "done", "total", "last", "result", "error", "added", "summaries"}
+        self.worker = None
+
+    def submit(self, task):
+        import threading
+        with self.lock:
+            item = {"id": len(self.items) + 1, "title": task["title"], "state": "queued", "done": 0,
+                    "total": len(task["ids"]) if task.get("ids") else None, "last": "", "result": "", "error": None,
+                    "added": 0, "summaries": 0}
+            self.items.append(item)
+            if not self.worker or not self.worker.is_alive():
+                self.worker = threading.Thread(target=self.work, daemon=True)
+                self.worker.start()
+        self.queue.put((item, task))
+        return dict(item)
+
+    def work(self):
+        while True:
+            item, task = self.queue.get()
+            self.update(item, state="running")
+            try:
+                error = self.run(item, task)
+            except Exception as e:  # keep the worker alive whatever one download does
+                error = str(e)
+            self.update(item, state="error" if error else "done", error=error)
+
+    def update(self, item, **changes):
+        with self.lock:
+            item.update(changes)
+
+    def run(self, item, task):
+        config = load_config()
+        root = archive_root(config)
+        before = archived_ids(root)
+        if task.get("plan"):
+            commands = [["download", "--plan", str(root / ".plans" / task["plan"]), "--progress-every", "1"]
+                        + (["--sample"] if task.get("sample") else [])]
+        else:
+            commands = [["download", "--", f"https://www.youtube.com/watch?v={video_id}"] for video_id in task["ids"]]
+        error = None
+        for number, args in enumerate(commands, 1):
+            process = fetch_process(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            output = []
+            for line in process.stdout:
+                line = line.rstrip()
+                output.append(line)
+                if match := re.match(r"To process: (\d+)", line):
+                    if task.get("plan"):
+                        self.update(item, total=int(match[1]))
+                elif match := re.match(r"\[(\d+)/(\d+)\] (.*)", line):
+                    self.update(item, last=match[3], **({"done": int(match[1])} if task.get("plan") else {}))
+                elif line.startswith("Summary:"):
+                    self.update(item, result=line.removeprefix("Summary:").strip())
+            code = process.wait()
+            if not task.get("plan"):
+                self.update(item, done=number)
+            if code:
+                text = "\n".join(output)
+                stop = next((line for line in output if line.startswith(("STOPPED", "INTERRUPTED"))), None)
+                error = (stop or last_line(text, f"fetch.py ended with code {code}"))[:400]
+                if code == 3:  # rate limited: the rest would fail the same way
+                    break
+        added = sorted(archived_ids(root) - before)
+        summaries = 0
+        if task.get("summarize") and added and claude_command():
+            summaries = len(JOBS.submit(root, config["language"], added)["queued"])
+        self.update(item, added=len(added), summaries=summaries)
+        return error
+
+    def snapshot(self):
+        with self.lock:
+            return [dict(item) for item in self.items[-10:]]
+
+    def busy(self):
+        with self.lock:
+            return sum(1 for item in self.items if item["state"] in ("queued", "running"))
+
+
+DOWNLOADS = Downloads()
+
+
+def add_request(path, body):
+    """The POST requests of the add dialog: (data, status)."""
+    if not fetch_command():
+        return {"error": "yt-fetch is not installed"}, 409
+    text = lambda key, limit: body.get(key) if isinstance(body.get(key), str) and 0 < len(body[key].strip()) <= limit else None
+    if path == "/api/add/search":
+        query = text("query", 200)
+        if not query:
+            return {"error": "bad request"}, 400
+        data, error = run_fetch(["search", "--limit", "12", "--", query.strip()])
+    elif path == "/api/add/survey":
+        url = text("url", 500)
+        types = body.get("types") or []
+        since = body.get("since") or ""
+        if (not url or not isinstance(types, list) or not set(types) <= set(FETCH_TYPES)
+                or not isinstance(since, str) or (since and not DATE.fullmatch(since))):
+            return {"error": "bad request"}, 400
+        args = ["survey", "--json"] + (["--types", ",".join(types)] if types else []) + (["--since", since] if since else [])
+        data, error = run_fetch(args + ["--", url.strip()])
+    else:  # /api/add/download: a plan from an overview, or videos picked from the search
+        plan = body.get("plan")
+        ids = body.get("ids") or []
+        title = (text("title", 300) or "").strip()
+        if plan is not None and not (isinstance(plan, str) and PLAN_NAME.fullmatch(plan)):
+            return {"error": "bad request"}, 400
+        if not isinstance(ids, list) or not all(isinstance(i, str) and VIDEO_ID.fullmatch(i) for i in ids) \
+                or bool(plan) == bool(ids) or len(ids) > 50:
+            return {"error": "bad request"}, 400
+        return DOWNLOADS.submit({"title": title, "plan": plan, "ids": ids, "sample": bool(body.get("sample")),
+                                 "summarize": bool(body.get("summarize"))}), 200
+    return (data, 200) if error is None else ({"error": error}, 502)
+
+
 # Pages the server hands out carry this key; a request to start summaries must send it back,
 # so other websites open in the browser cannot start them.
 TOKEN = __import__("secrets").token_urlsafe(24)
@@ -806,7 +1044,7 @@ def make_handler(port):
                     or not hmac.compare_digest(self.headers.get("X-Token", ""), TOKEN)):
                 return self.send_error(403)
             path = urllib.parse.urlsplit(self.path).path
-            if path not in ("/api/summarize", "/api/settings"):
+            if path not in ("/api/summarize", "/api/settings", "/api/add/search", "/api/add/survey", "/api/add/download"):
                 return self.send_error(404)
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -816,6 +1054,8 @@ def make_handler(port):
                 return self.send_error(400)
             if path == "/api/settings":
                 return self.save_settings(body)
+            if path.startswith("/api/add/"):
+                return self.send_json(*add_request(path, body))
             try:
                 ids = [i for i in body.get("ids", []) if isinstance(i, str) and VIDEO_ID.fullmatch(i)][:1000]
                 mode = body.get("mode", "summary")
@@ -854,16 +1094,19 @@ def make_handler(port):
                     return self.send_body(page.encode("utf-8"), "text/html; charset=utf-8")
                 if path == "/api/health":
                     return self.send_json({"app": "yt-summary", "pid": os.getpid(), "root": str(root),
-                                           "script": SCRIPT_STAMP, "busy": JOBS.busy()})
+                                           "script": SCRIPT_STAMP, "busy": JOBS.busy() + DOWNLOADS.busy()})
                 if path == "/api/config":
                     shown, labels = page_labels(root, config)
                     return self.send_json({"language": language, "ui_language": shown, "labels": labels,
                                            "model": config["model"],
-                                           "summarize": claude_command() is not None})
+                                           "summarize": claude_command() is not None,
+                                           "add": fetch_command() is not None})
                 if path == "/api/settings":
                     return self.send_json(settings_payload())
                 if path == "/api/jobs":
                     return self.send_json(JOBS.snapshot())
+                if path == "/api/downloads":
+                    return self.send_json(DOWNLOADS.snapshot())
                 if path == "/api/videos":
                     return self.send_json(list_videos(root, language))
                 if path == "/api/playlists":

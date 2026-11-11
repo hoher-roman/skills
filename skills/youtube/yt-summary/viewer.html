@@ -262,6 +262,79 @@
   ul.channels .chevron { color: var(--muted); font-size: 1.2rem; line-height: 1; }
   section > h2 .meta { font-weight: 400; }
 
+  /* Adding videos: a dialog with links or a YouTube search, the overview, and the downloads in progress. */
+  .top-buttons { display: flex; gap: 8px; flex-shrink: 0; }
+  .add-button.busy { position: relative; color: var(--accent); }
+  .add-button.busy::after { content: ""; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 0 2px var(--bg); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  dialog.add { width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--border);
+    border-radius: 14px; background: var(--bg); color: var(--text); box-shadow: 0 20px 48px rgba(0, 0, 0, .3); }
+  dialog.add[open] { display: flex; flex-direction: column; }
+  dialog.add::backdrop { background: rgba(0, 0, 0, .45); }
+  .add-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--border); }
+  .add-head h2 { margin: 0; font-size: 1.1rem; }
+  .add-close { font-size: 1.6rem; line-height: 1; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 4px; }
+  .add-close:hover { color: var(--accent); }
+  .add-body { padding: 14px 18px; overflow-y: auto; flex: 1 1 auto; }
+  .add-body > form label { display: block; font-size: .92rem; color: var(--muted); margin-bottom: 6px; }
+  .add-body textarea { width: 100%; font: inherit; font-size: .95rem; padding: 8px 10px; border-radius: 8px; resize: vertical;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .add-body .note { color: var(--muted); font-size: .8rem; margin: 6px 0 0; }
+  .add-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .add-actions .action { margin: 8px 0 0; }
+  .add-foot { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; padding: 10px 18px;
+    border-top: 1px solid var(--border); }
+  .add-foot .action { margin: 0; padding: 6px 14px; }
+  .add-foot .grow { flex: 1 1 auto; }
+  .add-foot label.check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
+  .add-foot .note { display: block; font-size: .78rem; color: var(--muted); }
+  .add-wait { display: flex; align-items: center; flex-wrap: wrap; color: var(--muted); margin: 0; }
+  .add-wait .meta { flex-basis: 100%; overflow-wrap: anywhere; }
+  section.add-card { margin: 0 0 12px; padding: 14px 16px; }
+  section.add-card h3 { margin: 2px 0 4px; }
+  .add-kind { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .add-card .done { color: var(--muted); font-weight: 600; margin: 8px 0 0; }
+  table.add-table { border-collapse: collapse; margin: 8px 0; font-size: .9rem; font-variant-numeric: tabular-nums; }
+  table.add-table th, table.add-table td { padding: 2px 16px 2px 0; text-align: right; }
+  table.add-table th:first-child, table.add-table td:first-child { text-align: left; }
+  table.add-table th { font-weight: 600; color: var(--muted); font-size: .8rem; }
+  table.add-table tr.total td { border-top: 1px solid var(--border); font-weight: 600; }
+  table.add-table tr.off td { color: var(--muted); }
+  .add-filters { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .88rem; margin: 8px 0; }
+  .add-filters label { display: flex; gap: 5px; align-items: center; }
+  .add-filters input[type="date"] { font: inherit; font-size: .88rem; padding: 2px 6px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--surface); color: var(--text); }
+  .add-filters button { font: inherit; font-size: .82rem; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--accent);
+    background: none; color: var(--accent); cursor: pointer; }
+  .add-notes { list-style: none; padding: 0; margin: 6px 0; font-size: .85rem; color: var(--muted); }
+  .add-sample { margin: 4px 0 6px; padding-left: 22px; font-size: .88rem; }
+  .add-card h4 { margin: 10px 0 2px; }
+  ul.add-results { list-style: none; padding: 0; margin: 0; }
+  ul.add-results li + li { border-top: 1px solid var(--border); }
+  ul.add-results label { display: grid; grid-template-columns: auto 112px minmax(0, 1fr); gap: 10px; align-items: center;
+    padding: 8px 0; cursor: pointer; }
+  ul.add-results label.off { cursor: default; }
+  ul.add-results label.off img, ul.add-results label.off .title { opacity: .6; }
+  ul.add-results img { width: 112px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: var(--border); }
+  ul.add-results .title { display: block; font-weight: 600; line-height: 1.35; text-decoration: none; }
+  ul.add-results .title:hover { color: var(--accent); text-decoration: underline; }
+  ul.add-results .badge { margin-left: 0; }
+  #add-downloads:not(:empty) { padding: 10px 18px 14px; border-top: 1px solid var(--border); max-height: 30vh; overflow-y: auto; }
+  #add-downloads h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 4px; }
+  #add-downloads ul { list-style: none; padding: 0; margin: 0; }
+  #add-downloads li { padding: 4px 0; font-size: .9rem; min-width: 0; }
+  #add-downloads li > b { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #add-downloads .meta { display: flex; align-items: center; min-width: 0; }
+  #add-downloads .last { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #add-downloads .error { color: var(--accent); overflow-wrap: anywhere; }
+  @media (max-width: 600px) {
+    ul.add-results label { grid-template-columns: auto 80px minmax(0, 1fr); }
+    ul.add-results img { width: 80px; }
+    .add-body, .add-head, .add-foot { padding-left: 14px; padding-right: 14px; }
+  }
+
   @media (max-width: 600px) {
     .settings { top: 60px; }
     section { padding: 14px; }
@@ -272,6 +345,7 @@
 <body>
 <div class="wrap" id="app"></div>
 <div class="settings" id="settings" role="dialog" hidden></div>
+<dialog class="add" id="add-dialog"></dialog>
 
 <script>
   const app = document.getElementById("app");
@@ -548,7 +622,7 @@
     const back = scope.kind === "all" ? "" : `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
     if (title === null) {
       document.title = label("list_not_found");
-      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("list_not_found"))}</h1></div>${settingsButton()}</header>`;
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("list_not_found"))}</h1></div>${topButtons()}</header>`;
       return;
     }
     document.title = title;
@@ -558,7 +632,7 @@
         <div>${back}<h1>${esc(title)}</h1>
           <div class="meta">${esc(label("video_count", {n: scoped.length}))} · ${esc(label("summary_count", {n: withSummary}))}<span id="jobs-indicator"></span></div>
           ${scope.kind === "all" ? "" : `<div class="list-actions">${listButtons(scoped)}</div>`}</div>
-        ${settingsButton()}
+        ${topButtons()}
       </header>
       <div class="filters">
         <input type="search" id="q" placeholder="${esc(label(scope.kind === "all" ? "search_all" : "search"))}" value="${esc(filter.text)}">
@@ -655,7 +729,7 @@
     const back = `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
     if (v.error) {
       document.title = label("not_found");
-      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("not_found"))}</h1></div>${settingsButton()}</header>`;
+      app.innerHTML = `<header class="top"><div>${back}<h1>${esc(label("not_found"))}</h1></div>${topButtons()}</header>`;
       return;
     }
     document.title = v.title;
@@ -693,7 +767,7 @@
     app.innerHTML = `
       <div class="bar">${back}
         ${topics.length ? `<button type="button" class="toc-toggle" aria-controls="toc" aria-expanded="false">${esc(topicsTitle)} ▾</button>` : ""}
-        ${settingsButton()}</div>
+        ${topButtons()}</div>
       <div class="video-layout${topics.length ? "" : " no-toc"}"><div class="main">
       <div class="pinned">
         <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
@@ -854,6 +928,247 @@
       jobs = {...jobs, [ids[0]]: {state: "error", mode, error: err.message}};
     }
     await refreshJobs();
+  });
+
+
+  // ---------- adding videos: links or a YouTube search, the overview, then yt-fetch downloads in the background ----------
+  const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
+  const addDialog = document.getElementById("add-dialog");
+  let downloads = [], downloadsTimer = null, addText = "", addRun = 0, found = [];
+  const surveys = {};
+  const downloadsActive = () => downloads.some(d => d.state === "queued" || d.state === "running");
+  const addButton = () => CONFIG.add ? `<button class="gear add-button${downloadsActive() ? " busy" : ""}" data-add aria-haspopup="dialog"
+    aria-label="${esc(label("add"))}" title="${esc(label("add"))}">${PLUS}</button>` : "";
+  const topButtons = () => `<div class="top-buttons">${addButton()}${settingsButton()}</div>`;
+  const LINK = /^(https?:\/\/|www\.|m\.youtube\.|youtube\.com|youtu\.be|@[\w.-]+$)/i;
+  const compact = n => { try { return new Intl.NumberFormat(document.documentElement.lang || "en", {notation: "compact"}).format(n); } catch (e) { return String(n); } };
+  const planName = path => String(path).split(/[\\/]/).pop();
+
+  async function postJson(url, body) {
+    const response = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json", "X-Token": TOKEN},
+      body: JSON.stringify(body)});
+    const data = response.headers.get("Content-Type")?.includes("json") ? await response.json() : {};
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+  }
+  function summarizeAfter() { try { return localStorage.getItem("yt-summary-add-summarize") === "1"; } catch (e) { return false; } }
+
+  function addFrame(body, footer = "") {
+    addRun++;
+    addDialog.setAttribute("aria-label", label("add_title"));
+    addDialog.innerHTML = `<div class="add-head"><h2>${esc(label("add_title"))}</h2>
+        <button type="button" class="add-close" data-add-close aria-label="${esc(label("add_close"))}">×</button></div>
+      <div class="add-body">${body}</div>
+      ${footer ? `<div class="add-foot">${footer}</div>` : ""}
+      <div id="add-downloads"></div>`;
+    renderDownloads();
+    return addRun;
+  }
+  const backButton = () => `<button type="button" class="action secondary" data-add-back>← ${esc(label("add_back"))}</button>`;
+  const summarizeBox = () => CONFIG.summarize ? `<label class="check"><input type="checkbox" id="add-summarize"${summarizeAfter() ? " checked" : ""}>
+    <span>${esc(label("add_summarize"))}<span class="note">${esc(label("add_summarize_note", {model: CONFIG.model}))}</span></span></label>` : "";
+
+  function showAddStart() {
+    addFrame(`<form id="add-form"><label for="add-text">${esc(label("add_hint"))}</label>
+      <textarea id="add-text" rows="4" placeholder="${esc(label("add_placeholder"))}" spellcheck="false">${esc(addText)}</textarea>
+      <p class="note">${esc(label("add_note"))}</p>
+      <div class="add-actions"><button type="submit" class="action">${esc(label("add_next"))}</button></div></form>`);
+  }
+  function openAdd() {
+    closeSettings();
+    showAddStart();
+    if (!addDialog.open) addDialog.showModal();
+    document.getElementById("add-text").focus();
+    refreshDownloads();
+  }
+
+  // ---------- search on YouTube: tick the videos to add ----------
+  async function showSearch(query) {
+    const run = addFrame(`<p class="add-wait"><span class="spinner"></span>${esc(label("add_searching"))}</p>`, backButton());
+    try { found = await postJson("/api/add/search", {query}); }
+    catch (err) { if (run === addRun) addFailed(err); return; }
+    if (run !== addRun) return;
+    const rows = found.map(v => {
+      const off = v.in_archive || v.live;
+      return `<li><label class="${off ? "off" : ""}"><input type="checkbox" value="${esc(v.id)}"${off ? " disabled" : ""}>
+        <img src="https://i.ytimg.com/vi/${esc(v.id)}/mqdefault.jpg" alt="" loading="lazy">
+        <span><a class="title" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" rel="noopener">${esc(v.title)}</a>
+          <span class="meta">${esc(v.channel || "")}${v.duration ? ` · ${hms(v.duration)}` : ""}${v.views ? ` · ${esc(label("add_views", {n: compact(v.views)}))}` : ""}</span>
+          ${v.in_archive ? `<span class="badge">${esc(label("add_in_archive"))}</span>` : v.live ? `<span class="badge">${esc(label("add_live"))}</span>` : ""}</span>
+      </label></li>`;
+    }).join("");
+    addFrame(found.length ? `<h3>${esc(label("add_results", {query}))}</h3><ul class="add-results">${rows}</ul>`
+        : `<p class="empty">${esc(label("add_no_results", {query}))}</p>`,
+      `${backButton()}<span class="grow">${summarizeBox()}</span>
+       ${found.length ? `<button type="button" class="action" data-add-picked disabled>${esc(label("add_selected", {n: 0}))}</button>` : ""}`);
+  }
+
+  // ---------- links: an overview per link, the same as yt-fetch shows before downloading ----------
+  function showSurveys(links) {
+    addFrame(links.map((url, i) => `<section class="add-card" id="add-card-${i}"></section>`).join(""),
+      `${backButton()}<span class="grow">${summarizeBox()}</span>`);
+    links.forEach((url, i) => survey(url, i, {}));
+  }
+  async function survey(url, i, filters) {
+    const run = addRun, card = () => run === addRun ? document.getElementById(`add-card-${i}`) : null;
+    card().innerHTML = `<p class="add-wait"><span class="spinner"></span>${esc(label("add_surveying"))}<span class="meta">${esc(url)}</span></p>`;
+    try {
+      const data = await postJson("/api/add/survey", {url, ...filters});
+      surveys[i] = {url, data};
+      if (card()) card().innerHTML = overviewCard(data, i);
+    } catch (err) {
+      if (card()) card().innerHTML = `<p class="job error">${esc(label("add_error", {error: err.message}))}</p><p class="meta">${esc(url)}</p>`;
+    }
+  }
+  const typeName = t => label(`add_type_${t === "?" ? "unknown" : t}`);
+  const downloadButton = (d, sample, text, title) => `<button type="button" class="action${sample ? " secondary" : ""}"
+    data-add-plan="${esc(planName(d.plan))}" data-sample="${sample ? "1" : ""}" data-title="${esc(title)}">${esc(text)}</button>`;
+  const target = d => d.target ? `<p class="meta">${esc(label("add_target", {path: d.target}))}</p>` : "";
+
+  function overviewCard(d, i) {
+    if (d.kind === "video") {
+      const v = d.video;
+      const transcript = v.transcript ? label("add_transcript", {language: v.transcript.language,
+        kind: label(v.transcript.kind === "manual" ? "add_captions_manual" : "add_captions_auto")}) : label("add_no_transcript");
+      const status = {new: "", in_archive: label("add_video_in_archive"), not_yet: label("add_video_not_yet")}[v.status];
+      return `<div class="add-kind">${esc(label("add_kind_video"))}</div><h3>${esc(v.title)}</h3>
+        <p class="meta">${esc(v.channel || "")} · ${esc(day(v.upload_date))} · ${hms(v.duration)}</p>
+        <p class="meta">${esc(transcript)}</p>${status ? `<p class="meta">${esc(status)}</p>` : ""}${target(d)}
+        <div class="add-actions">${v.status === "not_yet" ? "" : downloadButton(d, false, label(v.status === "in_archive" ? "add_check_video" : "add_download_video"), v.title)}
+          ${d.playlist_id ? `<button type="button" class="action secondary" data-add-playlist="${esc(d.playlist_id)}" data-card="${i}">${esc(label("add_whole_playlist"))}</button>` : ""}</div>`;
+    }
+    const name = d.kind === "channel" ? `${d.title || d.id}${d.handle ? ` (${d.handle})` : ""}` : `${d.title || d.id}${d.channel ? ` · ${d.channel}` : ""}`;
+    const chosen = d.options.types;
+    const rows = d.rows.map(r => r.skipped
+      ? `<tr class="off"><td>${esc(typeName(r.type))}</td><td>–</td><td>${esc(label("add_skipped"))}</td></tr>`
+      : `<tr><td>${esc(typeName(r.type))}</td><td>${r.count}</td><td>${r.count && r.count === r.missing ? "?" : hms(r.seconds) + (r.missing ? "+" : "")}</td></tr>`).join("");
+    const notes = [
+      d.skipped_known ? label("add_known", {n: d.skipped_known}) : "",
+      d.unavailable ? label("add_unavailable", {n: d.unavailable}) : "",
+      d.missing ? label("add_no_duration") : "",
+      d.options.since ? label("add_since_note") : "",
+      d.count ? label("add_estimate", {n: d.minutes}) : label("add_nothing"),
+    ].filter(Boolean);
+    return `<div class="add-kind">${esc(label(`add_kind_${d.kind}`))}</div><h3>${esc(name)}</h3>${target(d)}
+      <div class="add-filters" data-card="${i}">
+        ${d.types.length > 1 || chosen ? d.types.map(t => `<label><input type="checkbox" value="${esc(t)}"${!chosen || chosen.includes(t) ? " checked" : ""}>${esc(typeName(t))}</label>`).join("") : ""}
+        <label>${esc(label("add_since"))} <input type="date" value="${esc(d.options.since || "")}"></label>
+        <button type="button" data-add-refilter="${i}">${esc(label("add_refilter"))}</button>
+      </div>
+      <table class="add-table"><tr><th></th><th>${esc(label("add_col_count"))}</th><th>${esc(label("add_col_time"))}</th></tr>${rows}
+        <tr class="total"><td>${esc(label("add_total"))}</td><td>${d.count}</td><td>${hms(d.seconds)}${d.missing ? "+" : ""}</td></tr></table>
+      <ul class="add-notes">${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>
+      ${d.sample.length ? `<h4>${esc(label("add_sample", {n: d.sample.length}))}</h4><ol class="add-sample">${d.sample.map(v =>
+        `<li>${esc(v.title)} <span class="meta">· ${v.views ? esc(label("add_views", {n: compact(v.views)})) + " · " : ""}${v.duration ? hms(v.duration) : "?"}</span></li>`).join("")}</ol>` : ""}
+      ${d.count ? `<div class="add-actions">${downloadButton(d, false, label("add_download_all", {n: d.count}), name)}
+        ${d.sample.length ? downloadButton(d, true, label("add_download_sample", {n: d.sample.length}), name) : ""}</div>` : ""}`;
+  }
+
+  function addFailed(err) {
+    addFrame(`<p class="job error">${esc(label("add_error", {error: err.message}))}</p>`, backButton());
+  }
+
+  async function startDownload(body, place) {
+    const summarize = Boolean(document.getElementById("add-summarize")?.checked);
+    try { localStorage.setItem("yt-summary-add-summarize", summarize ? "1" : "0"); } catch (e) {}
+    try {
+      const item = await postJson("/api/add/download", {...body, summarize});
+      downloads = [...downloads.filter(d => d.id !== item.id), item];
+      place.innerHTML = `<p class="done">✓ ${esc(label("add_started"))}</p>`;
+    } catch (err) {
+      place.insertAdjacentHTML("beforeend", `<p class="job error">${esc(label("add_error", {error: err.message}))}</p>`);
+      return;
+    }
+    renderDownloads();
+    updateAddButton();
+    refreshDownloads();
+  }
+
+  addDialog.addEventListener("submit", e => {
+    if (e.target.id !== "add-form") return;
+    e.preventDefault();
+    addText = document.getElementById("add-text").value;
+    const lines = addText.split(/\n/).map(line => line.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const links = lines.filter(line => LINK.test(line)).map(line => line.startsWith("@") ? `https://www.youtube.com/${line}` : line);
+    if (links.length) showSurveys([...new Set(links)]);
+    else showSearch(lines.join(" "));
+  });
+  addDialog.addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && e.target.id === "add-text") document.getElementById("add-form").requestSubmit();
+  });
+  addDialog.addEventListener("change", e => {
+    if (!e.target.closest(".add-results")) return;
+    const picked = addDialog.querySelectorAll(".add-results input:checked").length;
+    const button = addDialog.querySelector("[data-add-picked]");
+    button.disabled = !picked;
+    button.textContent = label("add_selected", {n: picked});
+  });
+  addDialog.addEventListener("click", e => {
+    if (e.target === addDialog) return addDialog.close();  // the backdrop
+    const button = e.target.closest("button");
+    if (!button) return;
+    if (button.matches("[data-add-close]")) addDialog.close();
+    else if (button.matches("[data-add-back]")) { showAddStart(); document.getElementById("add-text").focus(); }
+    else if (button.matches("[data-add-plan]")) {
+      button.disabled = true;
+      startDownload({plan: button.dataset.addPlan, sample: Boolean(button.dataset.sample), title: button.dataset.title},
+        button.closest(".add-actions"));
+    } else if (button.matches("[data-add-picked]")) {
+      const ids = [...addDialog.querySelectorAll(".add-results input:checked")].map(input => input.value);
+      const title = ids.length === 1 ? found.find(v => v.id === ids[0]).title : label("add_picked_title", {n: ids.length});
+      button.disabled = true;
+      const place = document.createElement("div");
+      addDialog.querySelector(".add-body").prepend(place);
+      startDownload({ids, title}, place).then(() => {
+        addDialog.querySelectorAll(".add-results input:checked").forEach(input => { input.checked = false; input.disabled = true; });
+      });
+    } else if (button.matches("[data-add-refilter]")) {
+      const box = button.closest(".add-filters"), i = Number(button.dataset.addRefilter);
+      const boxes = [...box.querySelectorAll("input[type=checkbox]")];
+      const types = boxes.length && boxes.some(b => !b.checked) ? boxes.filter(b => b.checked).map(b => b.value) : [];
+      if (boxes.length && !types.length && boxes.some(b => !b.checked)) return;  // nothing ticked
+      survey(surveys[i].url, i, {types, since: box.querySelector("input[type=date]").value});
+    } else if (button.matches("[data-add-playlist]")) {
+      survey(`https://www.youtube.com/playlist?list=${button.dataset.addPlaylist}`, Number(button.dataset.card), {});
+    }
+  });
+
+  // ---------- downloads in progress: shown in the dialog; the + button pulses while one runs ----------
+  function renderDownloads() {
+    const box = document.getElementById("add-downloads");
+    if (!box) return;
+    box.innerHTML = downloads.length ? `<h3>${esc(label("add_downloads"))}</h3><ul>${downloads.slice().reverse().map(d => {
+      const status = d.state === "queued" ? `<span class="spinner"></span>${esc(label("add_dl_queued"))}`
+        : d.state === "running" ? `<span class="spinner"></span>${esc(d.total ? label("add_dl_running", {done: d.done, total: d.total}) : label("add_dl_starting"))}`
+        : d.state === "done" ? `✓ ${esc(plural("add_dl_done", d.added))}${d.summaries ? ` · ${esc(label("add_dl_summaries", {n: d.summaries}))}` : ""}`
+        : `<span class="error">${esc(label("add_dl_error", {error: d.error}))}${d.added ? ` · ${esc(plural("add_dl_done", d.added))}` : ""}</span>`;
+      const last = d.state === "running" && d.last ? `<span class="meta last">${esc(d.last.replace(/ … .*$/, ""))}</span>` : "";
+      return `<li><b>${esc(d.title || label("add_title"))}</b><span class="meta">${status}</span>${last}</li>`;
+    }).join("")}</ul>` : "";
+  }
+  function updateAddButton() {
+    document.querySelectorAll("[data-add]").forEach(b => b.classList.toggle("busy", downloadsActive()));
+  }
+  async function refreshDownloads() {
+    clearTimeout(downloadsTimer);
+    const before = new Map(downloads.map(d => [d.id, d.state]));
+    try { downloads = await getJson("/api/downloads"); } catch (e) { return; }
+    renderDownloads();
+    updateAddButton();
+    const finished = downloads.some(d => ["queued", "running"].includes(before.get(d.id)) && !["queued", "running"].includes(d.state));
+    if (finished) {
+      if (pageKind === "archive") {  // the new videos and channels appear in the list
+        const y = window.scrollY;
+        await showArchive(scope);
+        window.scrollTo(0, y);
+      }
+      refreshJobs();
+    }
+    if (downloadsActive()) downloadsTimer = setTimeout(refreshDownloads, 2000);
+  }
+  document.addEventListener("click", e => {
+    if (e.target.closest("[data-add]")) openAdd();
   });
 
   // ---------- player: times seek the embedded video; without a working player they open YouTube (their href) ----------
@@ -1182,6 +1497,7 @@
     CONFIG = config;
     try { jobs = await getJson("/api/jobs"); } catch (e) {}
     refreshJobs();
+    if (config.add) refreshDownloads();
     document.documentElement.lang = config.ui_language;
     route();
   });

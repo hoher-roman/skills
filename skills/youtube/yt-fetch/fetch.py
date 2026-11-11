@@ -4,7 +4,9 @@ Usage:
   python fetch.py config [--set-output-dir PATH]
   python fetch.py survey <url> [--playlist] [--types video,short,stream,podcast]
                          [--since YYYY-MM-DD] [--refresh] [--out-dir PATH]
-      prints the overview and saves the exact list as a plan file
+      prints the overview and saves the exact list as a plan file (--json: the overview as JSON, for the viewer)
+  python fetch.py search "<words>" [--limit N]
+      finds videos on YouTube, prints them as JSON (for the viewer of yt-summary)
   python fetch.py download --plan PLAN [--progress-every N]
       downloads exactly the plan (run the same command again to continue after a stop)
   python fetch.py download <url> [same filters as survey]   (no overview, for scripts)
@@ -851,6 +853,56 @@ def print_overview(plan, path):
     print(f"Plan: {path}")
 
 
+def overview_data(plan, path):
+    """The overview of print_overview as data, for the viewer of yt-summary."""
+    meta, options = plan["meta"], plan["options"]
+    entries = [Entry(**e) for e in plan["entries"]]
+    queue = set(plan["queue"])
+    root = Path(plan["root"])
+    data = {"plan": str(path), "kind": meta["kind"], "id": meta["id"], "title": meta.get("title"),
+            "channel": meta.get("channel"), "handle": meta.get("handle"), "options": options}
+    if meta["kind"] == "channel":
+        data["target"] = str(root / "channels" / meta["id"])
+    elif meta["kind"] == "playlist":
+        data["target"] = str(root / "playlists" / meta["id"])
+    if meta["kind"] == "video":
+        video = meta["video"]
+        if video.get("channel_id"):
+            data["target"] = str(root / "channels" / video["channel_id"] / meta["id"])
+        status = ("not_yet" if video["live_status"] in ("is_upcoming", "is_live")
+                  else "in_archive" if meta["in_archive"] else "new")
+        data["video"] = {**video, "status": status}
+        data["playlist_id"] = meta.get("playlist_id")
+        return data
+
+    available = [e for e in entries if e.available]
+    rows = []
+    for vtype in TYPES + ["?"]:
+        present = [e for e in available if (e.type or "?") == vtype]
+        if not present:
+            continue
+        if options["types"] and vtype != "?" and vtype not in options["types"]:
+            rows.append({"type": vtype, "skipped": True, "available": len(present)})
+            continue
+        chosen = [e for e in present if e.id in queue]
+        rows.append({"type": vtype, "count": len(chosen), "seconds": sum(e.duration or 0 for e in chosen),
+                     "missing": sum(1 for e in chosen if not e.duration)})
+    by_id = {e.id: e for e in entries}
+    data.update({
+        "types": [r["type"] for r in rows if r["type"] != "?"],
+        "rows": rows,
+        "count": len(queue),
+        "seconds": sum(r.get("seconds", 0) for r in rows),
+        "missing": sum(r.get("missing", 0) for r in rows),
+        "skipped_known": plan["skipped_known"],
+        "unavailable": len(entries) - len(available),
+        "minutes": max(1, round(len(queue) * SECONDS_PER_VIDEO / 60)) if queue else 0,
+        "sample": [{"id": i, "title": by_id[i].title, "views": by_id[i].views, "duration": by_id[i].duration}
+                   for i in plan.get("sample") or []],
+    })
+    return data
+
+
 def views_text(views):
     if not views:
         return "? views"
@@ -865,7 +917,32 @@ def cmd_survey(args):
     config = load_config()
     root = archive_root(args, config)
     plan, path = build_plan(args, root, config)
-    print_overview(plan, path)
+    if args.json:
+        print(json.dumps(overview_data(plan, path), ensure_ascii=False))
+    else:
+        print_overview(plan, path)
+    return 0
+
+
+def cmd_search(args):
+    """Videos on YouTube matching the words, newest information only from the search page (no download)."""
+    config = load_config()
+    root = archive_root(args, config)
+    registry = load_registry(root)
+    limit = max(1, min(args.limit, 30))
+    with make_ydl(flat=True) as ydl:
+        info = ydl.extract_info(f"ytsearch{limit}:{args.query}", download=False) or {}
+    found = []
+    for item in info.get("entries") or []:
+        if not item or not item.get("id") or item.get("title") in UNAVAILABLE_TITLES:
+            continue
+        url = item.get("url") or ""
+        found.append({"id": item["id"], "title": item.get("title"), "channel": item.get("channel") or item.get("uploader"),
+                      "channel_id": item.get("channel_id"), "duration": item.get("duration"),
+                      "views": item.get("view_count"), "type": "short" if "/shorts/" in url else None,
+                      "live": item.get("live_status") in ("is_live", "is_upcoming"),
+                      "in_archive": item["id"] in registry})
+    print(json.dumps(found, ensure_ascii=False))
     return 0
 
 
@@ -1087,10 +1164,17 @@ def main():
         command.add_argument("--since", help="YYYY-MM-DD, only videos published on or after")
         command.add_argument("--refresh", action="store_true", help="re-check videos already in the archive")
         command.add_argument("--out-dir")
+        if name == "survey":
+            command.add_argument("--json", action="store_true", help="print the overview as JSON")
         if name == "download":
             command.add_argument("--plan", help="plan file saved by survey; downloads exactly that list")
             command.add_argument("--progress-every", type=int, default=1, help="print progress every N videos")
             command.add_argument("--sample", action="store_true", help="only the most viewed videos listed in the overview")
+
+    search = commands.add_parser("search")
+    search.add_argument("query")
+    search.add_argument("--limit", type=int, default=12)
+    search.add_argument("--out-dir")
 
     changes = commands.add_parser("changes")
     changes.add_argument("--apply")
@@ -1103,7 +1187,7 @@ def main():
         commands.add_parser(name).add_argument("--out-dir")
 
     args = parser.parse_args()
-    handler = {"config": cmd_config, "survey": cmd_survey, "download": cmd_download,
+    handler = {"config": cmd_config, "survey": cmd_survey, "download": cmd_download, "search": cmd_search,
                "changes": cmd_changes, "reindex": cmd_reindex, "rebuild-md": cmd_rebuild_md}[args.command]
     try:
         return handler(args)
