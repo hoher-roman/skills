@@ -760,7 +760,7 @@
           </article>`).join("")}
       </section>` : "";
 
-    const descriptionHtml = v.description ? `<section><details><summary>${esc(label("description"))}</summary>
+    const descriptionHtml = v.description ? `<section><details open><summary>${esc(label("description"))}</summary>
         <div class="description">${richText(v.description)}</div></details></section>` : "";
     const transcript = v.transcript ? ` (${v.transcript.language}, ${v.transcript.kind})` : "";
     app.classList.toggle("wide", Boolean(topics.length));
