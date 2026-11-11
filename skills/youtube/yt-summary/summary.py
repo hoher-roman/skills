@@ -13,6 +13,8 @@ Usage:
       paths of the video's archive files, the summary language and the viewer labels still to translate
   python summary.py locate <video_id> "<phrase>" ["<phrase>" ...]
       start time (seconds) of each phrase in the transcript, by word timing from the .json3
+  python summary.py silences <video_id>
+      stretches of the video without speech (no words, or only marks such as [Music]), for the flow
   python summary.py keep <video_id>
       moves an existing summary.<lang>.json aside as summary.<lang>.<date>.json, before a new analysis
   python summary.py check <video_id>
@@ -125,6 +127,29 @@ LABELS = {
     "settings_bad_dir": "This folder does not exist.",
     "settings_busy": "Summaries are being created; change this when they are done.",
     "settings_error": "Saving failed: {error}",
+    "flow": "Flow of the video",
+    "flow_curve": "Curve",
+    "flow_strip": "Strip",
+    "flow_missing": "This summary has no flow yet.",
+    "flow_create": "Create flow",
+    "flow_create_list": "Add missing flows ({n})",
+    "flow_confirm": "Add the flow to the summaries that have none? Videos: {n}, total length {time}, model {model}. "
+                    "It runs in the background on your Claude account; the summaries themselves stay as they are.",
+    "flow_job_queued": "The flow is waiting in the queue…",
+    "flow_job_running": "Creating the flow… This usually takes about a minute.",
+    "flow_job_error": "The flow could not be created: {error}",
+    "flow_seek": "Play from {time}",
+    "flow_kind_silence": "Silence",
+    "flow_kind_promo": "Ad, promotion",
+    "flow_kind_smalltalk": "Small talk",
+    "flow_kind_tangent": "Digression",
+    "flow_kind_frame": "Framing, transition",
+    "flow_kind_context": "Context",
+    "flow_kind_loose": "Content: loose",
+    "flow_kind_solid": "Content: solid",
+    "flow_kind_dense": "Content: dense",
+    "flow_ideas": "Main idea",
+    "highlight": "Don't miss",
     "theme_auto": "Auto",
     "theme_light": "Light",
     "theme_dark": "Dark",
@@ -361,7 +386,82 @@ def locate(words, phrase):
     return hits
 
 
+# ---------- silences ----------
+
+SILENCE_SECONDS = 15  # a stretch without speech at least this long is a silence segment of the flow
+NON_SPEECH = re.compile(r"\[[^\]]*\]|\([^)]*\)|[♪♫\s]+")  # [Music], [Applause], (laughs), music notes
+WORD_SECONDS = 2.5  # longest a single timed word is taken to last
+
+
+def speech_spans(json3_path):
+    """[(start, end)] in seconds of everything said in the transcript.
+
+    Automatic captions time every word (several segments per event): a word lasts until the next one, at most
+    WORD_SECONDS. Manual captions have one segment per line: the line lasts as long as it is shown."""
+    data = read_json(json3_path, {}) or {}
+    spans = []
+    for event in data.get("events", []):
+        base, shown = event.get("tStartMs", 0), event.get("dDurationMs", 0)
+        segs = [seg for seg in event.get("segs") or [] if seg.get("utf8", "").strip()]
+        timed = len(segs) > 1
+        for i, seg in enumerate(segs):
+            if NON_SPEECH.fullmatch(seg["utf8"].strip()):
+                continue
+            start = base + seg.get("tOffsetMs", 0)
+            end = base + segs[i + 1].get("tOffsetMs", 0) if i + 1 < len(segs) else base + shown
+            if timed:
+                end = min(end, start + WORD_SECONDS * 1000)
+            spans.append((start / 1000, max(end, start) / 1000))
+    return sorted(spans)
+
+
+def silences(json3_path, duration, minimum=SILENCE_SECONDS):
+    """[(start, end)] in whole seconds of the stretches without speech that last at least `minimum` seconds."""
+    found, said_until = [], 0.0
+    for start, end in speech_spans(json3_path) + [(duration, duration)]:
+        if start - said_until >= minimum:
+            found.append((int(said_until), int(start)))
+        said_until = max(said_until, end)
+    return found
+
+
 # ---------- check ----------
+
+# The kinds of talk in a summary's flow and their level: below 0 nothing on the video's subject, 0 framing,
+# above 0 the subject, by how much the listener learns (ANALYSIS.md).
+FLOW_KINDS = {"silence": -4, "promo": -3, "smalltalk": -2, "tangent": -1, "frame": 0,
+              "context": 1, "loose": 2, "solid": 3, "dense": 4}
+MAX_HIGHLIGHTS = 3
+
+
+def flow_problems(flow, duration):
+    """What is wrong with a summary's flow (consecutive segments over the whole video)."""
+    if not isinstance(flow, list) or not flow:
+        return ["flow is not a list of segments"]
+    problems, previous = [], -1
+    for number, segment in enumerate(flow, 1):
+        where = f"flow[{number}]"
+        if not isinstance(segment, dict):
+            problems.append(f"{where}: not an object")
+            continue
+        if segment.get("kind") not in FLOW_KINDS:
+            problems.append(f"{where}: kind {segment.get('kind')!r} is not one of {', '.join(FLOW_KINDS)}")
+        if not str(segment.get("label") or "").strip():
+            problems.append(f"{where}: missing label")
+        try:
+            at = seconds_of(segment.get("start"))
+        except (TypeError, ValueError):
+            problems.append(f"{where}: start {segment.get('start')!r} is not seconds or m:ss")
+            continue
+        if number == 1 and at != 0:
+            problems.append(f"{where}: the first segment must start at 0:00, not {hms(at)}")
+        elif at <= previous:
+            problems.append(f"{where}: start {hms(at)} is not after the previous segment ({hms(previous)})")
+        if duration and at >= duration:
+            problems.append(f"{where}: start {hms(at)} is at or after the end of the video ({hms(duration)})")
+        previous = at
+    return problems
+
 
 def summary_problems(summary, duration):
     """What in summary.json the viewer could not show, as readable sentences."""
@@ -394,6 +494,15 @@ def summary_problems(summary, duration):
                 if not moment.get("text"):
                     problems.append(f"{where}.moments[{m_number}]: missing text")
                 time_ok(moment.get("start"), f"{where}.moments[{m_number}]")
+    if "flow" in summary:  # summaries made before the flow existed have none
+        problems += flow_problems(summary["flow"], duration)
+    ideas = summary.get("ideas") if isinstance(summary.get("ideas"), list) else []
+    highlighted = [i for i, idea in enumerate(ideas, 1) if isinstance(idea, dict) and "highlight" in idea]
+    if len(highlighted) > MAX_HIGHLIGHTS:
+        problems.append(f"{len(highlighted)} ideas have a highlight; at most {MAX_HIGHLIGHTS} may have one")
+    for number in highlighted:
+        if not str(ideas[number - 1]["highlight"] or "").strip():
+            problems.append(f"ideas[{number}]: highlight is empty")
     return problems
 
 
@@ -406,6 +515,10 @@ def list_videos(root, language):
             rows = list(csv.DictReader(f))
     except OSError:
         return []
+    def has_flow(path):
+        summary = read_json(path, None) if path.exists() else None
+        return bool(isinstance(summary, dict) and summary.get("flow"))
+
     return [{
         "id": row["video_id"],
         "channel_id": row["channel_id"],
@@ -416,6 +529,7 @@ def list_videos(root, language):
         "type": row["type"],
         "transcript": row["transcript"],
         "summary": (root / row["path"] / f"summary.{language}.json").exists(),
+        "flow": has_flow(root / row["path"] / f"summary.{language}.json"),
     } for row in rows]
 
 
@@ -523,8 +637,12 @@ def claude_command():
     return [found] if found else None
 
 
-def run_summary(video_id):
-    """Summarize one video with a headless Claude Code run by ANALYSIS.md. Returns None, or what went wrong."""
+JOB_MODES = ("summary", "flow")
+
+
+def run_summary(video_id, mode="summary"):
+    """Summarize one video with a headless Claude Code run by ANALYSIS.md, or (mode "flow") add only the flow
+    to its existing summary. Returns None, or what went wrong."""
     config = load_config()
     root = archive_root(config)
     claude = claude_command()
@@ -532,9 +650,14 @@ def run_summary(video_id):
         return "the claude command (Claude Code) is not installed"
     folder = video_folder(root, video_id)
     script = SCRIPT.as_posix()
-    prompt = (f"Summarize the YouTube video `{video_id}` from the local archive. Read `{ANALYSIS.as_posix()}` "
-              f"and follow it exactly. Run the script exactly as `python \"{script}\" <command> ...`. "
-              "The user's wishes: none. Reply with only the result line from step 5 of ANALYSIS.md.")
+    if mode == "flow":
+        prompt = (f"Add the flow to the existing summary of the YouTube video `{video_id}` from the local archive "
+                  f"(flow only). Read `{ANALYSIS.as_posix()}` and follow its section Flow only exactly. Run the script "
+                  f"exactly as `python \"{script}\" <command> ...`. Reply with only the result line of that section.")
+    else:
+        prompt = (f"Summarize the YouTube video `{video_id}` from the local archive. Read `{ANALYSIS.as_posix()}` "
+                  f"and follow it exactly. Run the script exactly as `python \"{script}\" <command> ...`. "
+                  "The user's wishes: none. Reply with only the result line from step 5 of ANALYSIS.md.")
     # Edits only inside the archive (its root is the working directory), commands only this script and date.
     command = claude + ["-p", prompt, "--output-format", "json", "--no-session-persistence",
                         "--permission-mode", "acceptEdits"]
@@ -561,7 +684,10 @@ def run_summary(video_id):
     summary = folder / f"summary.{config['language']}.json"
     if summary.exists() and summary.stat().st_mtime >= started:
         duration = (read_json(folder / "info.json", {}) or {}).get("duration") or 0
-        problems = summary_problems(read_json(summary, {}) or {}, duration)
+        written = read_json(summary, {}) or {}
+        problems = summary_problems(written, duration)
+        if not problems and mode == "flow" and not written.get("flow"):
+            problems = ["the flow was not written"]
         return f"the summary has problems: {problems[0]} (log: {log_path})" if problems else None
     lines = [line for line in text.strip().splitlines() if line.strip()]
     reason = lines[-1][:300] if lines else f"claude ended with code {result.returncode}"
@@ -583,16 +709,22 @@ class Jobs:
         import threading
         self.lock = threading.Lock()
         self.queue = queue.Queue()
-        self.state = {}  # video id -> {"state": "queued" | "running" | "done" | "error", "error": "..."}
+        self.state = {}  # video id -> {"state": "queued" | "running" | "done" | "error", "mode": ..., "error": "..."}
         self.workers = 0
 
-    def submit(self, root, language, ids):
+    def submit(self, root, language, ids, mode="summary"):
         queued, skipped = [], {}
         for video_id in ids:
             try:
                 folder = video_folder(root, video_id)
                 transcript_file(folder)
-                reason = "it has a summary" if (folder / f"summary.{language}.json").exists() else None
+                summary = folder / f"summary.{language}.json"
+                if mode == "flow":
+                    existing = read_json(summary, None) if summary.exists() else None
+                    reason = ("it has no summary" if not isinstance(existing, dict)
+                              else "it has a flow" if existing.get("flow") else None)
+                else:
+                    reason = "it has a summary" if summary.exists() else None
             except Fail as e:
                 reason = str(e)
             with self.lock:
@@ -601,8 +733,8 @@ class Jobs:
                 if reason:
                     skipped[video_id] = reason
                     continue
-                self.state[video_id] = {"state": "queued"}
-            self.queue.put(video_id)
+                self.state[video_id] = {"state": "queued", "mode": mode}
+            self.queue.put((video_id, mode))
             queued.append(video_id)
         self.start_workers()
         return {"queued": queued, "skipped": skipped}
@@ -621,15 +753,16 @@ class Jobs:
                 if self.workers > max(1, int(load_config()["parallel"])):
                     self.workers -= 1
                     return
-            video_id = self.queue.get()
+            video_id, mode = self.queue.get()
             with self.lock:
-                self.state[video_id] = {"state": "running"}
+                self.state[video_id] = {"state": "running", "mode": mode}
             try:
-                error = run_summary(video_id)
+                error = run_summary(video_id, mode)
             except Exception as e:  # keep the worker alive whatever one video does
                 error = str(e)
             with self.lock:
-                self.state[video_id] = {"state": "error", "error": error} if error else {"state": "done"}
+                self.state[video_id] = ({"state": "error", "mode": mode, "error": error} if error
+                                        else {"state": "done", "mode": mode})
             if error and BLOCKING_ERROR.search(error):
                 self.cancel_queued("not started, because another video failed: " + error)
 
@@ -638,11 +771,11 @@ class Jobs:
         import queue
         while True:
             try:
-                video_id = self.queue.get_nowait()
+                video_id, mode = self.queue.get_nowait()
             except queue.Empty:
                 return
             with self.lock:
-                self.state[video_id] = {"state": "error", "error": reason}
+                self.state[video_id] = {"state": "error", "mode": mode, "error": reason}
 
     def snapshot(self):
         with self.lock:
@@ -685,10 +818,13 @@ def make_handler(port):
                 return self.save_settings(body)
             try:
                 ids = [i for i in body.get("ids", []) if isinstance(i, str) and VIDEO_ID.fullmatch(i)][:1000]
-            except (ValueError, AttributeError):
+                mode = body.get("mode", "summary")
+                if mode not in JOB_MODES:
+                    raise ValueError
+            except (ValueError, AttributeError, TypeError):
                 return self.send_error(400)
             config = load_config()
-            return self.send_json(JOBS.submit(archive_root(config), config["language"], ids))
+            return self.send_json(JOBS.submit(archive_root(config), config["language"], ids, mode))
 
         def save_settings(self, body):
             changes, problem = apply_settings(body)
@@ -979,6 +1115,18 @@ def cmd_locate(args):
     return 0
 
 
+def cmd_silences(args):
+    config = load_config()
+    folder = video_folder(archive_root(config), args.video_id)
+    raw, _ = transcript_file(folder)
+    duration = (read_json(folder / "info.json", {}) or {}).get("duration") or 0
+    found = silences(raw, duration)
+    for start, end in found:
+        print(f"silence {start} {end}  ({hms(start)}–{hms(end)}, {hms(end - start)} without speech)")
+    print(f"Silences: {len(found)} (at least {SILENCE_SECONDS} s without speech)")
+    return 0
+
+
 def cmd_keep(args):
     """Move the current summary aside under its creation date, so a new analysis never overwrites it."""
     config = load_config()
@@ -1013,7 +1161,9 @@ def cmd_check(args):
         print(f"PROBLEM: {problem}")
     if problems:
         return 1
-    print(f"OK: {len(summary['topics'])} topics, {len(summary['ideas'])} ideas")
+    flow = f", {len(summary['flow'])} flow segments" if summary.get("flow") else ", no flow"
+    highlights = sum(1 for idea in summary["ideas"] if idea.get("highlight"))
+    print(f"OK: {len(summary['topics'])} topics, {len(summary['ideas'])} ideas ({highlights} highlighted){flow}")
     return 0
 
 
@@ -1091,7 +1241,7 @@ def main():
     status_parser = commands.add_parser("status")
     status_parser.add_argument("plan")
     status_parser.add_argument("--sample", action="store_true")
-    for name in ("info", "keep", "check"):
+    for name in ("info", "keep", "check", "silences"):
         commands.add_parser(name).add_argument("video_id")
     locate_parser = commands.add_parser("locate")
     locate_parser.add_argument("video_id")
@@ -1104,11 +1254,11 @@ def main():
 
     # Video IDs may start with "-" (e.g. -LJhQyfiFHU); argparse would take such an ID for an option.
     argv = sys.argv[1:]
-    if len(argv) > 1 and argv[0] in ("info", "keep", "check", "locate", "start") \
+    if len(argv) > 1 and argv[0] in ("info", "keep", "check", "locate", "start", "silences") \
             and argv[1].startswith("-") and argv[1] not in ("-h", "--help", "--open", "--"):
         argv.insert(1, "--")
     args = parser.parse_args(argv)
-    handler = {"config": cmd_config, "find": cmd_find, "plan": cmd_plan, "status": cmd_status, "info": cmd_info, "locate": cmd_locate, "keep": cmd_keep, "check": cmd_check,
+    handler = {"config": cmd_config, "find": cmd_find, "plan": cmd_plan, "status": cmd_status, "info": cmd_info, "locate": cmd_locate, "silences": cmd_silences, "keep": cmd_keep, "check": cmd_check,
                "start": cmd_start, "stop": cmd_stop, "serve": cmd_serve}[args.command]
     try:
         return handler(args)

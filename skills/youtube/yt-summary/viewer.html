@@ -9,16 +9,22 @@
   :root {
     --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --border: #e2e2e0;
     --accent: #c4302b; --accent-soft: #fbe9e8; --active: #fff6d6;
+    --flow-silence: #c9c9ce; --flow-promo: #d64545; --flow-smalltalk: #e8833a; --flow-tangent: #d9a520;
+    --flow-frame: #a3a3aa; --flow-context: #86c5bd; --flow-loose: #a9bfd6; --flow-solid: #3b7dd8; --flow-dense: #6a3fd1;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
       --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+      --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
+      --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
     }
   }
   :root[data-theme="dark"] {
     --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
     --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+    --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
+    --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
@@ -80,9 +86,65 @@
   .pinned { position: sticky; top: var(--bar); z-index: 5; background: var(--bg); }
   .player { padding: 0 0 8px; }
   header.video-head { padding: 8px 0 4px; }
-  aside.toc { position: sticky; top: var(--bar); max-height: calc(100vh - var(--bar) - 16px); overflow-y: auto;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 10px;
-    box-sizing: border-box; overscroll-behavior: contain; }
+  aside.toc { position: sticky; top: var(--bar); max-height: calc(100vh - var(--bar) - 16px); display: flex;
+    flex-direction: column; gap: 12px; box-sizing: border-box; }
+  aside.toc > .toc-topics { flex: 1 1 auto; min-height: 140px; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 10px; }
+  /* With the flow, the column takes the whole height of the window: the topics at most half (less when they are
+     few), the flow the rest, its chart stretching with it. */
+  aside.toc.with-flow { height: calc(100vh - var(--bar) - 16px); }
+  aside.toc.with-flow > .toc-topics { flex: 0 1 auto; max-height: 50%; }
+  aside.toc.with-flow > .flow-panel { flex: 1 1 auto; min-height: 260px; display: flex; flex-direction: column; }
+  aside.toc.with-flow .flow-chart { flex: 1 1 auto; height: auto; min-height: 160px; }
+  /* Flow of the video: the whole length top to bottom, filler left of the axis, valuable talk right of it. */
+  .flow-panel { flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin: 0; }
+  .flow-panel .flow-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .flow-panel h2 { font-size: 1rem; margin: 0; }
+  .flow-views { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .flow-views button { font: inherit; font-size: .78rem; border: 0; background: var(--surface); color: var(--muted);
+    padding: 3px 9px; cursor: pointer; }
+  .flow-views button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .flow-chart { position: relative; height: 300px; cursor: crosshair; outline: none;
+    border-radius: 6px; user-select: none; }
+  .flow-chart:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+  .flow-chart svg { position: absolute; inset: 0 0 0 38px; width: calc(100% - 38px); height: 100%; overflow: visible; }
+  .flow-chart .tick { position: absolute; left: 0; width: 34px; text-align: right; font-size: .68rem; color: var(--muted);
+    transform: translateY(-50%); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .flow-chart .playhead { position: absolute; left: 34px; right: 0; height: 0; border-top: 2px solid var(--text);
+    pointer-events: none; display: none; }
+  .flow-chart .playhead::before { content: ""; position: absolute; left: -2px; top: -5px; border: 4px solid transparent;
+    border-left: 6px solid var(--text); }
+  /* The main ideas on the flow: numbered dots at their times; the ones not to miss with a star. */
+  .flow-chart .idea-dot { position: absolute; transform: translate(-50%, -50%); min-width: 15px; height: 15px; padding: 0 2px;
+    box-sizing: border-box; border-radius: 8px; background: var(--surface); color: var(--text); border: 1.5px solid var(--text);
+    font-size: .6rem; font-weight: 700; line-height: 12px; text-align: center; pointer-events: none; }
+  .flow-chart .idea-dot.star { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hatch { background-image: repeating-linear-gradient(45deg, transparent 0 3px, rgba(127, 127, 127, .35) 3px 5px); }
+  .highlight { display: flex; gap: 8px; align-items: baseline; margin: 2px 0 8px; padding: 6px 10px; border-radius: 8px;
+    background: var(--accent-soft); font-size: .92rem; }
+  .highlight b { color: var(--accent); white-space: nowrap; }
+  .flow-strip-seg { position: absolute; left: 38px; width: 22px; box-sizing: border-box; border-bottom: 1px solid var(--surface); }
+  .flow-strip-label { position: absolute; left: 68px; right: 0; font-size: .74rem; line-height: 1.25; color: var(--text);
+    transform: translateY(-1px); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
+  .flow-strip-label .k { color: var(--muted); }
+  .flow-tip { position: absolute; z-index: 3; left: 40px; right: 0; pointer-events: none; display: none;
+    background: var(--text); color: var(--bg); font-size: .78rem; line-height: 1.35; border-radius: 6px; padding: 4px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .2); }
+  .flow-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin: 10px 0 0; padding: 0; list-style: none;
+    font-size: .72rem; color: var(--muted); }
+  .flow-legend li { display: flex; align-items: center; gap: 6px; }
+  .flow-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .flow-legend i.dot { border-radius: 50%; border: 1.5px solid var(--text); box-sizing: border-box; background: var(--surface); }
+  .flow-legend i.dot.star { background: var(--accent); border-color: var(--accent); }
+  .flow-missing p { font-size: .88rem; color: var(--muted); margin: 0 0 8px; }
+  .flow-missing button.action { margin: 0; padding: 6px 12px; font-size: .88rem; }
+  /* Narrow screens: a thin strip under the player instead of the panel. */
+  .flow-mini { display: none; position: relative; height: 10px; margin: 0 auto 8px; border-radius: 5px; overflow: hidden;
+    cursor: pointer; width: min(100%, calc(42vh * 16 / 9)); }
+  .flow-mini > i { position: absolute; top: 0; bottom: 0; }
+  .flow-mini .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); display: none;
+    box-shadow: 0 0 0 1px var(--bg); }
   aside.toc h2 { font-size: 1rem; margin: 0 0 6px; }
   aside.toc ul.topics { columns: auto; }
   aside.toc ul.topics li { cursor: pointer; border-radius: 6px; padding: 4px 6px; margin: 0 -6px; line-height: 1.4; }
@@ -102,8 +164,12 @@
     .video-layout { grid-template-columns: minmax(0, 1fr); }
     .toc-toggle { display: block; }
     aside.toc { display: none; position: fixed; z-index: 15; top: var(--bar); right: 16px; width: min(360px, calc(100vw - 32px));
-      max-height: 65vh; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); }
-    aside.toc.open { display: block; }
+      max-height: 65vh; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); border-radius: 12px; }
+    aside.toc.open { display: flex; }
+    aside.toc.with-flow { height: auto; }
+    aside.toc.with-flow > .toc-topics { max-height: none; }
+    aside.toc .flow-panel, aside.toc.with-flow > .flow-panel { display: none; }
+    .flow-mini { display: block; }
   }
   .frame { width: min(100%, calc(42vh * 16 / 9)); margin: 0 auto; aspect-ratio: 16 / 9; background: #000;
     border-radius: 10px; overflow: hidden; }
@@ -134,6 +200,7 @@
     background: var(--accent); color: #fff; margin: 4px 0 12px; }
   button.action:hover { filter: brightness(1.1); }
   button.action:disabled { opacity: .6; cursor: default; }
+  button.action.secondary { background: var(--surface); color: var(--accent); border: 1px solid var(--accent); }
   .list-actions button.action { padding: 5px 12px; font-size: .85rem; margin: 8px 0 4px; }
   .job { display: flex; gap: 8px; align-items: center; font-weight: 600; }
   .job.error { color: var(--accent); font-weight: 400; overflow-wrap: anywhere; }
@@ -490,7 +557,7 @@
       <header class="top">
         <div>${back}<h1>${esc(title)}</h1>
           <div class="meta">${esc(label("video_count", {n: scoped.length}))} · ${esc(label("summary_count", {n: withSummary}))}<span id="jobs-indicator"></span></div>
-          ${scope.kind === "all" ? "" : `<div class="list-actions">${summarizeListButton(scoped)}</div>`}</div>
+          ${scope.kind === "all" ? "" : `<div class="list-actions">${listButtons(scoped)}</div>`}</div>
         ${settingsButton()}
       </header>
       <div class="filters">
@@ -599,8 +666,9 @@
     const topics = s ? s.topics.map(t => [t.start, t.title]) : (v.chapters || []).map(c => [c.start_time, c.title]);
     const topicsTitle = label(s ? "topics" : "chapters");
     const tocHtml = topics.length ? `
-      <aside class="toc" id="toc" aria-label="${esc(topicsTitle)}"><h2>${esc(topicsTitle)}</h2>
+      <aside class="toc${s ? " with-flow" : ""}" id="toc" aria-label="${esc(topicsTitle)}"><div class="toc-topics"><h2>${esc(topicsTitle)}</h2>
         <ul class="topics">${topics.map(([t, title]) => `<li data-t="${seconds(t)}">${timeLink(t)} <span>${esc(title)}</span></li>`).join("")}</ul>
+        </div>${s ? `<section class="flow-panel" id="flow-panel" aria-label="${esc(label("flow"))}"></section>` : ""}
       </aside>` : "";
     let tab = "overview";
     try { if (localStorage.getItem("yt-summary-tab") === "ideas") tab = "ideas"; } catch (e) {}
@@ -610,6 +678,7 @@
         ${s.ideas.map((idea, i) => `
           <article class="idea" data-t="${seconds(idea.start)}">
             <h3>${timeLink(idea.start)}<span class="n">${i + 1}</span><span>${esc(idea.title)}</span></h3>
+            ${idea.highlight ? `<p class="highlight"><b>★ ${esc(label("highlight"))}</b><span>${esc(idea.highlight)}</span></p>` : ""}
             ${paragraphs(idea.summary)}
             ${idea.reasoning ? `<h4>${esc(label("reasoning"))}</h4>${paragraphs(idea.reasoning)}` : ""}
             ${idea.moments && idea.moments.length ? `<h4>${esc(label("moments"))}</h4>
@@ -628,6 +697,7 @@
       <div class="video-layout${topics.length ? "" : " no-toc"}"><div class="main">
       <div class="pinned">
         <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
+        ${s && s.flow ? `<div class="flow-mini" id="flow-mini" role="img" aria-label="${esc(label("flow"))}"></div>` : ""}
       </div>
       <header class="video-head"><h1>${esc(v.title)}</h1>
         <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div>
@@ -652,6 +722,7 @@
       </div>${tocHtml}</div>`;
     tabScroll = {};
     if (s) { showTab(tab); pinTabs(); }
+    setFlow(s && s.flow, v.duration, s && s.ideas);
     startPlayer(id);
     showJobBox();
   }
@@ -708,6 +779,16 @@
   let jobs = {}, jobsTimer = null;
   const isActive = id => jobs[id] && (jobs[id].state === "queued" || jobs[id].state === "running");
 
+  // Buttons of a channel or playlist page: missing summaries, and flows missing in existing summaries.
+  const listButtons = list => summarizeListButton(list) + flowListButton(list);
+  function flowListButton(list) {
+    const missing = list.filter(v => v.summary && !v.flow && !isActive(v.id));
+    if (!CONFIG.summarize || !missing.length) return "";
+    const time = hms(missing.reduce((total, v) => total + v.duration, 0));
+    return ` <button type="button" class="action secondary" data-mode="flow" data-summarize="${esc(missing.map(v => v.id).join(" "))}"
+      data-confirm="${esc(label("flow_confirm", {n: missing.length, time, model: CONFIG.model}))}">${esc(label("flow_create_list", {n: missing.length}))}</button>`;
+  }
+
   // Button for the videos of a channel or playlist that have a transcript but no summary yet.
   function summarizeListButton(list) {
     const missing = list.filter(v => !v.summary && v.transcript && !isActive(v.id));
@@ -720,7 +801,7 @@
   function showJobBox() {
     const box = document.getElementById("job-box");
     if (!box) return;
-    const job = jobs[videoId];
+    const job = jobs[videoId] && jobs[videoId].mode !== "flow" ? jobs[videoId] : null;
     if (job && job.state === "queued") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_queued"))}</p>`;
     else if (job && job.state === "running") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_running"))}</p>`;
     else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label("job_error", {error: job.error}))}</p>` : "")
@@ -745,12 +826,13 @@
         await showVideo(videoId);  // the new summary appears in place
       } else if (pageKind === "video") {
         showJobBox();
+        showFlowJob();
       } else if (document.getElementById("list")) {
         if (finished.length) videos = await getJson("/api/videos");
         const fresh = new Map(videos.map(v => [v.id, v]));
         scoped = scoped.map(v => fresh.get(v.id) || v);
         renderList();
-        document.querySelectorAll(".top .list-actions").forEach(el => { el.innerHTML = summarizeListButton(scoped); });
+        document.querySelectorAll(".top .list-actions").forEach(el => { el.innerHTML = listButtons(scoped); });
         showJobsIndicator();
       }
     }
@@ -763,13 +845,13 @@
     e.preventDefault();
     if (button.dataset.confirm && !window.confirm(button.dataset.confirm)) return;
     button.disabled = true;
-    const ids = button.dataset.summarize.split(" ");
+    const ids = button.dataset.summarize.split(" "), mode = button.dataset.mode || "summary";
     try {
       const response = await fetch("/api/summarize", {method: "POST",
-        headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify({ids})});
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify({ids, mode})});
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
     } catch (err) {
-      jobs = {...jobs, [ids[0]]: {state: "error", error: err.message}};
+      jobs = {...jobs, [ids[0]]: {state: "error", mode, error: err.message}};
     }
     await refreshJobs();
   });
@@ -868,6 +950,193 @@
     document.querySelectorAll(".idea").forEach(el => el.classList.toggle("active", el === target));
   }
 
+  // ---------- flow of the video ----------
+  // Kinds of talk and their level (as in summary.py and ANALYSIS.md); left of the axis nothing on the subject.
+  const FLOW_KINDS = {silence: -4, promo: -3, smalltalk: -2, tangent: -1, frame: 0, context: 1, loose: 2, solid: 3, dense: 4};
+  const OLD_KINDS = {topic: "solid", key: "dense", breakthrough: "dense"};  // flows made by the first scale
+  let flow = null;  // {segments: [{start, end, kind, label}], ideas: [{n, t, title, star}], duration}
+
+  function setFlow(raw, duration, ideas) {
+    flow = null;
+    if (Array.isArray(raw) && raw.length && duration) {
+      const list = raw.map(x => {
+        const kind = OLD_KINDS[x.kind] || x.kind;
+        return {start: seconds(x.start), kind: kind in FLOW_KINDS ? kind : "frame", label: x.label || ""};
+      }).sort((a, b) => a.start - b.start);
+      list.forEach((x, i) => { x.end = i + 1 < list.length ? list[i + 1].start : duration; });
+      flow = {segments: list.filter(x => x.end > x.start), duration,
+              ideas: (ideas || []).map((idea, i) => ({n: i + 1, t: seconds(idea.start), title: idea.title, star: Boolean(idea.highlight)}))};
+    }
+    renderFlowPanel();
+    renderFlowMini();
+  }
+  const flowView = () => { try { return localStorage.getItem("yt-summary-flow-view") === "strip" ? "strip" : "curve"; } catch (e) { return "curve"; } };
+  const kindColor = kind => `var(--flow-${kind})`;
+  const kindClass = kind => kind === "silence" ? " hatch" : "";
+  const kindName = kind => label(`flow_kind_${kind}`);
+  const segmentAt = t => flow.segments.find(x => t >= x.start && t < x.end) || flow.segments[flow.segments.length - 1];
+  const pct = t => `${(t / flow.duration * 100).toFixed(3)}%`;
+
+  function renderFlowPanel() {
+    const panel = document.getElementById("flow-panel");
+    if (!panel) return;
+    if (!flow) {
+      panel.innerHTML = `<div class="flow-top"><h2>${esc(label("flow"))}</h2></div>
+        <div class="flow-missing"><p>${esc(label("flow_missing"))}</p><div id="flow-job"></div></div>`;
+      showFlowJob();
+      return;
+    }
+    const view = flowView();
+    const used = Object.keys(FLOW_KINDS).filter(k => flow.segments.some(x => x.kind === k));
+    panel.innerHTML = `
+      <div class="flow-top"><h2>${esc(label("flow"))}</h2>
+        <div class="flow-views" role="group">${["curve", "strip"].map(v =>
+          `<button type="button" data-flow-view="${v}" aria-pressed="${v === view}">${esc(label("flow_" + v))}</button>`).join("")}</div></div>
+      <div class="flow-chart" id="flow-chart" tabindex="0" role="slider" aria-label="${esc(label("flow"))}"
+        aria-valuemin="0" aria-valuemax="${Math.round(flow.duration)}" aria-valuenow="0">
+        ${[0, .25, .5, .75, 1].map(f => `<span class="tick" style="top:${f * 100}%">${hms(flow.duration * f)}</span>`).join("")}
+        ${view === "curve" ? flowCurve() : ""}
+        <div class="playhead"></div><div class="flow-tip"></div>
+      </div>
+      <ul class="flow-legend">${used.map(k => `<li><i class="${kindClass(k)}" style="background-color:${kindColor(k)}"></i>${esc(kindName(k))}</li>`).join("")}
+        ${flow.ideas.length ? `<li><i class="dot"></i>${esc(label("flow_ideas"))}</li>` : ""}
+        ${flow.ideas.some(i => i.star) ? `<li><i class="dot star"></i>${esc(label("highlight"))}</li>` : ""}</ul>`;
+    // The strip places its labels by the chart's real height, so it is drawn once the chart is on the page.
+    const chart = document.getElementById("flow-chart");
+    if (view === "strip") chart.insertAdjacentHTML("afterbegin", flowStrip(chart.clientHeight || 300));
+    chart.insertAdjacentHTML("beforeend", ideaDots(view));
+    movePlayhead(ready && player && player.getCurrentTime ? player.getCurrentTime() : null);
+  }
+
+  // The curve: a smooth line through the level of each segment; filler goes left of the axis, valuable talk right.
+  // Each segment's band between the axis and its level has the color of its kind; framing is a thin band on the axis,
+  // silence a pale one.
+  function flowCurve() {
+    const Y = t => t / flow.duration * 1000, X = kind => FLOW_KINDS[kind] / 4 * 92;
+    let line = "";
+    flow.segments.forEach((x, i) => {
+      const y0 = Y(x.start), y1 = Y(x.end), cx = X(x.kind), r = Math.min((y1 - y0) * .3, 10);
+      if (i === 0) line += `M${cx},0`;
+      else {
+        const px = X(flow.segments[i - 1].kind);
+        line += ` C${px},${y0} ${cx},${y0} ${cx},${y0 + r}`;
+      }
+      line += ` L${cx},${y1 - (i + 1 < flow.segments.length ? Math.min((y1 - y0) * .3, 10) : 0)}`;
+    });
+    const bands = flow.segments.map(x => {
+      const cx = X(x.kind), left = Math.min(cx, 0) || -4, right = Math.max(cx, 0) || 4;
+      return `<rect x="${left}" y="${Y(x.start)}" width="${right - left}" height="${Y(x.end) - Y(x.start)}"
+        style="fill:${kindColor(x.kind)}" fill-opacity="${x.kind === "silence" ? .5 : .8}"/>`;
+    }).join("");
+    return `<svg viewBox="-100 0 200 1000" preserveAspectRatio="none" aria-hidden="true">
+        ${bands}
+        <line x1="0" y1="0" x2="0" y2="1000" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+        <path d="${line}" fill="none" stroke="var(--text)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+      </svg>`;
+  }
+
+  // The main ideas as numbered dots: on the curve at the level of the talk at that time, on the strip on the bar.
+  function ideaDots(view) {
+    return flow.ideas.map(idea => {
+      const left = view === "strip" ? "49px"
+        : `calc(38px + (100% - 38px) * ${((FLOW_KINDS[segmentAt(idea.t).kind] / 4 * 92 + 100) / 200).toFixed(3)})`;
+      return `<span class="idea-dot${idea.star ? " star" : ""}" style="top:${pct(idea.t)};left:${left}">${idea.star ? "★" : idea.n}</span>`;
+    }).join("");
+  }
+
+  // The strip: one bar colored by the kind of each segment, with the labels of segments tall enough to read.
+  function flowStrip(height) {
+    let lastLabel = -100;
+    return flow.segments.map(x => {
+      const top = x.start / flow.duration * height, h = (x.end - x.start) / flow.duration * height;
+      let text = "";
+      if (top - lastLabel >= 14) {
+        lastLabel = top;
+        text = `<span class="flow-strip-label" style="top:${pct(x.start)}"><span class="k">${hms(x.start)}</span> ${esc(x.label)}</span>`;
+      }
+      return `<i class="flow-strip-seg${kindClass(x.kind)}" style="top:${pct(x.start)};height:${pct(x.end - x.start)};background-color:${kindColor(x.kind)}"
+        title="${esc(kindName(x.kind))}"></i>${text}`;
+    }).join("");
+  }
+
+  function renderFlowMini() {
+    const mini = document.getElementById("flow-mini");
+    if (!mini || !flow) return;
+    mini.innerHTML = flow.segments.map(x => `<i class="${kindClass(x.kind)}" style="left:${pct(x.start)};width:${pct(x.end - x.start)};background-color:${kindColor(x.kind)}"
+      title="${esc(`${hms(x.start)} · ${kindName(x.kind)} · ${x.label}`)}"></i>`).join("") + `<span class="playhead"></span>`;
+  }
+
+  function movePlayhead(now) {
+    if (!flow || now === null || now === undefined) return;
+    const head = document.querySelector("#flow-chart .playhead"), mini = document.querySelector("#flow-mini .playhead");
+    if (head) { head.style.display = "block"; head.style.top = pct(now); }
+    if (mini) { mini.style.display = "block"; mini.style.left = pct(now); }
+    document.getElementById("flow-chart")?.setAttribute("aria-valuenow", String(Math.round(now)));
+  }
+
+  function seekFlow(t) {
+    t = Math.max(0, Math.min(flow.duration - 1, t));
+    if (ready && player) { player.seekTo(t, true); player.playVideo(); }
+    else window.open(`https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(t)}s`, "_blank", "noopener");
+    movePlayhead(t);
+    scrollToIdea(t);
+  }
+  const chartTime = (chart, clientY) => {
+    const box = chart.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientY - box.top) / box.height)) * flow.duration;
+  };
+  document.addEventListener("click", e => {
+    const viewButton = e.target.closest("[data-flow-view]");
+    if (viewButton) {
+      try { localStorage.setItem("yt-summary-flow-view", viewButton.dataset.flowView); } catch (err) {}
+      renderFlowPanel();
+      return;
+    }
+    if (!flow) return;
+    const chart = e.target.closest("#flow-chart");
+    if (chart) return seekFlow(chartTime(chart, e.clientY));
+    const mini = e.target.closest("#flow-mini");
+    if (mini) {
+      const box = mini.getBoundingClientRect();
+      seekFlow((e.clientX - box.left) / box.width * flow.duration);
+    }
+  });
+  document.addEventListener("mousemove", e => {
+    const chart = e.target.closest && e.target.closest("#flow-chart");
+    const tip = document.querySelector("#flow-chart .flow-tip");
+    if (!tip) return;
+    if (!chart || !flow) { tip.style.display = "none"; return; }
+    const t = chartTime(chart, e.clientY), x = segmentAt(t), box = chart.getBoundingClientRect();
+    const near = flow.ideas.find(i => Math.abs(i.t - t) / flow.duration * box.height <= 8);
+    tip.innerHTML = `<b>${hms(t)}</b> · ${esc(kindName(x.kind))}<br>${esc(x.label)}`
+      + (near ? `<br>${near.star ? "★" : near.n}. ${esc(near.title)}` : "");
+    tip.style.display = "block";
+    const y = e.clientY - box.top;
+    tip.style.top = `${y > box.height - 60 ? y - tip.offsetHeight - 10 : y + 14}px`;
+  });
+  // Keyboard on the chart: up and down jump to the previous or next segment.
+  document.addEventListener("keydown", e => {
+    if (!flow || e.target.id !== "flow-chart" || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const now = Number(e.target.getAttribute("aria-valuenow")) || 0, current = segmentAt(now);
+    const i = flow.segments.indexOf(current);
+    const next = e.key === "ArrowDown" ? flow.segments[Math.min(i + 1, flow.segments.length - 1)]
+      : flow.segments[now - current.start > 3 ? i : Math.max(i - 1, 0)];
+    seekFlow(next.start);
+  });
+
+  // The flow of a summary made before flows existed: created on request, the same way as a summary.
+  function showFlowJob() {
+    const box = document.getElementById("flow-job");
+    if (!box) return;
+    const job = jobs[videoId] && jobs[videoId].mode === "flow" ? jobs[videoId] : null;
+    if (job && job.state === "queued") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("flow_job_queued"))}</p>`;
+    else if (job && job.state === "running") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("flow_job_running"))}</p>`;
+    else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label("flow_job_error", {error: job.error}))}</p>` : "")
+      + (CONFIG.summarize ? `<button type="button" class="action" data-mode="flow" data-summarize="${esc(videoId)}">${esc(label("flow_create"))}</button>` : "");
+  }
+  window.addEventListener("resize", () => { if (flow && flowView() === "strip") renderFlowPanel(); });
+
   // Copy buttons: put their text on the clipboard and confirm it on the button for a moment.
   document.addEventListener("click", async e => {
     const button = e.target.closest("button[data-copy]");
@@ -898,12 +1167,13 @@
     if (player.getPlayerState() !== YT.PlayerState.PLAYING) return;
     const now = player.getCurrentTime();
     mark("ul.topics li", li => Number(li.querySelector("a.t").dataset.t), now);
-    const toc = document.getElementById("toc"), active = toc && toc.querySelector("li.active");
+    const toc = document.querySelector("#toc .toc-topics"), active = toc && toc.querySelector("li.active");
     if (active && toc.scrollHeight > toc.clientHeight) {
       const a = active.getBoundingClientRect(), box = toc.getBoundingClientRect();
       if (a.top < box.top || a.bottom > box.bottom) toc.scrollTop += a.top - box.top - box.height / 3;
     }
     mark(".idea", el => Number(el.dataset.t), now);
+    movePlayhead(now);
   }, 1000);
 
   // ---------- start ----------
