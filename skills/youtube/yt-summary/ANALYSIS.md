@@ -15,7 +15,7 @@ Commands run with the Bash tool as `python "<skill folder>/summary.py" <command>
 Run `summary.py info <id>`. It prints the paths used below and the summary language (`summary_language`).
 
 - `ERROR:` (not in the archive, no transcript): stop and report it as the result.
-- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. Not when the task is *flow only*: then follow the last section, [Flow only](#flow-only), instead. It keeps the old summary as `summary.<lang>.<date>.json`.
+- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. It keeps the old summary as `summary.<lang>.<date>.json`. Not when the task is *flow only* (then follow the last section, [Flow only](#flow-only), instead) or says the old summary is already kept (then write the new one over `summary_json`).
 
 Read `info.json` (title, channel, date, duration, chapters), `description.txt` and the whole `transcript_md`. Read a long transcript in parts, but read all of it before writing; the summary must cover the whole video, not its beginning.
 
@@ -61,7 +61,7 @@ For every on-subject segment ask: *does the listener learn something new and sup
 
 **Short videos** (shorts, or anything under about 3 minutes): one overview paragraph, 1–3 topics, 1–3 ideas with 1–2 moments each, 1–5 flow segments, no `highlight` unless one idea clearly stands out. Do not inflate a short message.
 
-Wishes the user gave (shorter, a focus on one part, more ideas) adjust these sizes.
+Wishes the user gave (shorter, a focus on one part, more ideas, what to leave out) adjust these sizes and the focus; they never override the rules above. In *flow only* they apply to the flow and the highlights.
 
 ## 3. Exact times
 

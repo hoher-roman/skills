@@ -212,6 +212,24 @@ LABELS = {
     "add_dl_done_other": "Done, {n} new videos",
     "add_dl_summaries": "summaries queued: {n}",
     "add_dl_error": "Stopped: {error}",
+    "regen": "Regenerate",
+    "regen_hint": "Create the whole summary again (model {model}); the current version is kept.",
+    "regen_more": "Regenerate with choices",
+    "regen_title": "Regenerate the summary",
+    "regen_what": "What to create again",
+    "regen_summary": "The whole summary",
+    "regen_summary_note": "Overview, topics, main ideas and flow.",
+    "regen_flow": "Only the flow",
+    "regen_flow_note": "The overview, topics and ideas stay; the important ideas are chosen again.",
+    "regen_model": "Model for this run",
+    "regen_model_default": "As in the settings ({model})",
+    "regen_note": "Note for Claude",
+    "regen_note_placeholder": "e.g. focus on the practical advice, skip the sponsor reads",
+    "regen_note_hint": "Saved with the summary and offered again next time.",
+    "regen_kept": "The current version is kept as a dated copy next to the summary.",
+    "regen_cancel": "Cancel",
+    "regen_start": "Regenerate",
+    "regen_note_shown": "note: {note}",
     "theme_auto": "Auto",
     "theme_light": "Light",
     "theme_dark": "Dark",
@@ -247,6 +265,8 @@ def save_config(stored):
 DEFAULT_FETCH_CONFIG = {"caption_fallback_languages": ["en"], "explorer_names": True}  # as in yt-fetch
 LANGUAGE_CODE = re.compile(r"[a-z]{2,3}(-[a-z0-9]{2,8})*")
 MODELS = ("inherit", "opus", "sonnet", "haiku")
+MODEL_NAME = re.compile(r"[\w.\-\[\]]{1,60}")
+NOTE_LIMIT = 1000  # characters of the note given to one summary
 
 
 def ui_languages(config):
@@ -318,7 +338,7 @@ def apply_settings(body):
         changes["summary.ui_language"] = language
     if "model" in new:
         model = str(new["model"]).strip().lower()
-        if not re.fullmatch(r"[\w.\-\[\]]{1,60}", model):
+        if not MODEL_NAME.fullmatch(model):
             return None, ("summary.model", "settings_bad_model")
         changes["summary.model"] = model
     if "parallel" in new:
@@ -702,9 +722,32 @@ def claude_command():
 JOB_MODES = ("summary", "flow")
 
 
-def run_summary(video_id, mode="summary"):
+def keep_summary(folder, language, copy=False):
+    """Keep the current summary as summary.<lang>.<date>.json (its creation date): moved aside, or with copy=True
+    copied, when the current one is changed in place. Returns the kept file, or None without a summary."""
+    import shutil
+    current = folder / f"summary.{language}.json"
+    if not current.exists():
+        return None
+    created = str((read_json(current, {}) or {}).get("created_at") or "")
+    stamp = created[:10] or datetime.fromtimestamp(current.stat().st_mtime, timezone.utc).strftime("%Y-%m-%d")
+    number = 1
+    while (folder / f"summary.{language}.{stamp}{'' if number == 1 else f'-{number}'}.json").exists():
+        number += 1
+    target = folder / f"summary.{language}.{stamp}{'' if number == 1 else f'-{number}'}.json"
+    if copy:
+        shutil.copy2(current, target)
+    else:
+        current.rename(target)
+    return target
+
+
+def run_summary(video_id, mode="summary", options=None):
     """Summarize one video with a headless Claude Code run by ANALYSIS.md, or (mode "flow") add only the flow
-    to its existing summary. Returns None, or what went wrong."""
+    to its existing summary. Options of a regenerated summary: "regenerate" (keep a copy of the current one first),
+    "model" (instead of the configured one) and "note" (the user's wishes, saved in the summary).
+    Returns None, or what went wrong."""
+    options = options or {}
     config = load_config()
     root = archive_root(config)
     claude = claude_command()
@@ -712,19 +755,28 @@ def run_summary(video_id, mode="summary"):
         return "the claude command (Claude Code) is not installed"
     folder = video_folder(root, video_id)
     script = SCRIPT.as_posix()
+    note = str(options.get("note") or "").strip()
+    wishes = f"The user's wishes: {json.dumps(note, ensure_ascii=False)}." if note else "The user's wishes: none."
+    kept = None
+    if options.get("regenerate"):
+        kept = keep_summary(folder, config["language"], copy=True)
     if mode == "flow":
         prompt = (f"Add the flow to the existing summary of the YouTube video `{video_id}` from the local archive "
                   f"(flow only). Read `{ANALYSIS.as_posix()}` and follow its section Flow only exactly. Run the script "
-                  f"exactly as `python \"{script}\" <command> ...`. Reply with only the result line of that section.")
+                  f"exactly as `python \"{script}\" <command> ...`. {wishes} "
+                  "Reply with only the result line of that section.")
     else:
         prompt = (f"Summarize the YouTube video `{video_id}` from the local archive. Read `{ANALYSIS.as_posix()}` "
                   f"and follow it exactly. Run the script exactly as `python \"{script}\" <command> ...`. "
-                  "The user's wishes: none. Reply with only the result line from step 5 of ANALYSIS.md.")
+                  + ("The old summary is already kept: do not run keep, write the new summary over summary_json. "
+                     if kept else "")
+                  + f"{wishes} Reply with only the result line from step 5 of ANALYSIS.md.")
     # Edits only inside the archive (its root is the working directory), commands only this script and date.
     command = claude + ["-p", prompt, "--output-format", "json", "--no-session-persistence",
                         "--permission-mode", "acceptEdits"]
-    if config["model"] != "inherit":
-        command += ["--model", config["model"]]
+    model = options.get("model") or config["model"]
+    if model != "inherit":
+        command += ["--model", model]
     command += ["--allowedTools", "Read", f"Bash(python \"{script}\":*)", "Bash(date:*)"]
 
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
@@ -750,7 +802,14 @@ def run_summary(video_id, mode="summary"):
         problems = summary_problems(written, duration)
         if not problems and mode == "flow" and not written.get("flow"):
             problems = ["the flow was not written"]
-        return f"the summary has problems: {problems[0]} (log: {log_path})" if problems else None
+        if problems:
+            return f"the summary has problems: {problems[0]} (log: {log_path})"
+        if options.get("regenerate"):  # the note is offered again the next time
+            written.pop("note", None)
+            if note:
+                written["note"] = note
+            summary.write_text(json.dumps(written, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return None
     lines = [line for line in text.strip().splitlines() if line.strip()]
     reason = lines[-1][:300] if lines else f"claude ended with code {result.returncode}"
     if "authenticate" in text.lower() or "/login" in text:
@@ -774,7 +833,9 @@ class Jobs:
         self.state = {}  # video id -> {"state": "queued" | "running" | "done" | "error", "mode": ..., "error": "..."}
         self.workers = 0
 
-    def submit(self, root, language, ids, mode="summary"):
+    def submit(self, root, language, ids, mode="summary", options=None):
+        """options (a regenerated summary): {"regenerate": True, "model": ..., "note": ...}"""
+        options = options or {}
         queued, skipped = [], {}
         for video_id in ids:
             try:
@@ -784,9 +845,9 @@ class Jobs:
                 if mode == "flow":
                     existing = read_json(summary, None) if summary.exists() else None
                     reason = ("it has no summary" if not isinstance(existing, dict)
-                              else "it has a flow" if existing.get("flow") else None)
+                              else "it has a flow" if existing.get("flow") and not options.get("regenerate") else None)
                 else:
-                    reason = "it has a summary" if summary.exists() else None
+                    reason = "it has a summary" if summary.exists() and not options.get("regenerate") else None
             except Fail as e:
                 reason = str(e)
             with self.lock:
@@ -796,7 +857,7 @@ class Jobs:
                     skipped[video_id] = reason
                     continue
                 self.state[video_id] = {"state": "queued", "mode": mode}
-            self.queue.put((video_id, mode))
+            self.queue.put((video_id, mode, options))
             queued.append(video_id)
         self.start_workers()
         return {"queued": queued, "skipped": skipped}
@@ -815,11 +876,11 @@ class Jobs:
                 if self.workers > max(1, int(load_config()["parallel"])):
                     self.workers -= 1
                     return
-            video_id, mode = self.queue.get()
+            video_id, mode, options = self.queue.get()
             with self.lock:
                 self.state[video_id] = {"state": "running", "mode": mode}
             try:
-                error = run_summary(video_id, mode)
+                error = run_summary(video_id, mode, options)
             except Exception as e:  # keep the worker alive whatever one video does
                 error = str(e)
             with self.lock:
@@ -833,7 +894,7 @@ class Jobs:
         import queue
         while True:
             try:
-                video_id, mode = self.queue.get_nowait()
+                video_id, mode, _ = self.queue.get_nowait()
             except queue.Empty:
                 return
             with self.lock:
@@ -1059,12 +1120,19 @@ def make_handler(port):
             try:
                 ids = [i for i in body.get("ids", []) if isinstance(i, str) and VIDEO_ID.fullmatch(i)][:1000]
                 mode = body.get("mode", "summary")
+                options = {}
+                if body.get("regenerate"):  # from the regenerate button: one video, an own model and note
+                    model, note = body.get("model") or "", body.get("note") or ""
+                    if (len(ids) != 1 or not isinstance(model, str) or (model and not MODEL_NAME.fullmatch(model))
+                            or not isinstance(note, str) or len(note) > NOTE_LIMIT):
+                        raise ValueError
+                    options = {"regenerate": True, "model": model.strip().lower(), "note": note.strip()}
                 if mode not in JOB_MODES:
                     raise ValueError
             except (ValueError, AttributeError, TypeError):
                 return self.send_error(400)
             config = load_config()
-            return self.send_json(JOBS.submit(archive_root(config), config["language"], ids, mode))
+            return self.send_json(JOBS.submit(archive_root(config), config["language"], ids, mode, options))
 
         def save_settings(self, body):
             changes, problem = apply_settings(body)
@@ -1098,7 +1166,7 @@ def make_handler(port):
                 if path == "/api/config":
                     shown, labels = page_labels(root, config)
                     return self.send_json({"language": language, "ui_language": shown, "labels": labels,
-                                           "model": config["model"],
+                                           "model": config["model"], "models": list(MODELS),
                                            "summarize": claude_command() is not None,
                                            "add": fetch_command() is not None})
                 if path == "/api/settings":
@@ -1373,21 +1441,8 @@ def cmd_silences(args):
 def cmd_keep(args):
     """Move the current summary aside under its creation date, so a new analysis never overwrites it."""
     config = load_config()
-    folder = video_folder(archive_root(config), args.video_id)
-    language = config["language"]
-    current = folder / f"summary.{language}.json"
-    if not current.exists():
-        print("No summary yet, nothing to keep.")
-        return 0
-    created = (read_json(current, {}) or {}).get("created_at") or ""
-    stamp = created[:10] or datetime.fromtimestamp(current.stat().st_mtime, timezone.utc).strftime("%Y-%m-%d")
-    number = 1
-    while (folder / f"summary.{language}.{stamp}{'' if number == 1 else f'-{number}'}.json").exists():
-        number += 1
-    stamp += "" if number == 1 else f"-{number}"
-    target = folder / f"summary.{language}.{stamp}.json"
-    current.rename(target)
-    print(f"Kept: {target}")
+    kept = keep_summary(video_folder(archive_root(config), args.video_id), config["language"])
+    print(f"Kept: {kept}" if kept else "No summary yet, nothing to keep.")
     return 0
 
 

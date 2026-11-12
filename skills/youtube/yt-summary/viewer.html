@@ -89,6 +89,26 @@
   .pinned { position: sticky; top: var(--bar); z-index: 5; background: var(--bg); }
   .player { padding: 0 0 8px; }
   header.video-head { padding: 8px 0 4px; }
+  /* The title with the regenerate button: the main part regenerates at once, the arrow opens the choices. */
+  .title-row { display: flex; gap: 8px 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+  .title-row h1 { flex: 1 1 320px; }
+  #regen { flex: none; margin-top: 6px; max-width: 100%; }
+  #regen .job { font-size: .88rem; margin: 0; }
+  #regen .job.error { max-width: 420px; font-size: .82rem; margin-top: 6px; }
+  .split { display: inline-flex; }
+  .split button { font: inherit; font-size: .85rem; font-weight: 600; padding: 5px 12px; cursor: pointer; background: var(--surface);
+    color: var(--accent); border: 1px solid var(--accent); }
+  .split button:first-child { border-radius: 8px 0 0 8px; }
+  .split button:last-child { border-radius: 0 8px 8px 0; border-left: 0; padding: 5px 8px; }
+  .split button:hover { background: var(--accent-soft); }
+  .split button:disabled { opacity: .6; cursor: default; }
+  dialog.add.regen { width: min(520px, calc(100vw - 24px)); }
+  .regen-form fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+  .regen-form legend, .regen-form > label { display: block; font-size: .92rem; font-weight: 600; margin-bottom: 6px; }
+  .regen-form label.check { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
+  .regen-form label.check .note { display: block; margin: 0; }
+  .regen-form select { font: inherit; font-size: .95rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); margin-bottom: 14px; }
   aside.toc { position: sticky; top: var(--bar); max-height: calc(100vh - var(--bar) - 16px); display: flex;
     flex-direction: column; gap: 12px; box-sizing: border-box; }
   aside.toc > .toc-topics { flex: 1 1 auto; min-height: 140px; overflow-y: auto; overscroll-behavior: contain;
@@ -349,6 +369,7 @@
 <div class="wrap" id="app"></div>
 <div class="settings" id="settings" role="dialog" hidden></div>
 <dialog class="add" id="add-dialog"></dialog>
+<dialog class="add regen" id="regen-dialog"></dialog>
 
 <script>
   const app = document.getElementById("app");
@@ -737,6 +758,7 @@
     }
     document.title = v.title;
     const s = v.summary;
+    shownSummary = s;
     const meta = [v.channel ? `<a href="/c/${esc(v.channel_id)}" data-nav>${esc(v.channel)}</a>` : "",
       esc(day(v.upload_date)), hms(v.duration)].filter(Boolean).join(" · ");
 
@@ -776,7 +798,7 @@
         <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
         ${s && s.flow ? `<div class="flow-mini" id="flow-mini" role="img" aria-label="${esc(label("flow"))}"></div>` : ""}
       </div>
-      <header class="video-head"><h1>${esc(v.title)}</h1>
+      <header class="video-head"><div class="title-row"><h1>${esc(v.title)}</h1>${s && CONFIG.summarize ? `<div id="regen"></div>` : ""}</div>
         <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div>
       </header>
       ${s ? `
@@ -795,13 +817,15 @@
               <div class="command"><code>/yt-summary ${esc(id)}</code>
                 <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>
       ${descriptionHtml}`}
-      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}</footer>` : ""}
+      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}${
+        s.note ? ` · ${esc(label("regen_note_shown", {note: s.note}))}` : ""}</footer>` : ""}
       </div>${tocHtml}</div>`;
     tabScroll = {};
     if (s) { showTab(tab); pinTabs(); }
     setFlow(s && s.flow, v.duration, s && s.ideas);
     startPlayer(id);
     showJobBox();
+    showRegen();
   }
 
   // ---------- tabs of the video page ----------
@@ -904,6 +928,7 @@
       } else if (pageKind === "video") {
         showJobBox();
         showFlowJob();
+        showRegen();
       } else if (document.getElementById("list")) {
         if (finished.length) videos = await getJson("/api/videos");
         const fresh = new Map(videos.map(v => [v.id, v]));
@@ -933,6 +958,92 @@
     await refreshJobs();
   });
 
+
+  // ---------- regenerating a summary: at once with the defaults, or with the choices of the dialog ----------
+  // The server keeps the current version as summary.<lang>.<date>.json first.
+  const regenDialog = document.getElementById("regen-dialog");
+  let shownSummary = null;
+  const modelName = m => m === "inherit" ? label("settings_model_inherit") : m[0].toUpperCase() + m.slice(1);
+
+  function showRegen() {
+    const box = document.getElementById("regen");
+    if (!box) return;
+    const job = jobs[videoId];
+    const flowJob = job && job.mode === "flow";
+    if (job && (job.state === "queued" || job.state === "running")) {
+      box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label(
+        job.state === "queued" ? (flowJob ? "flow_job_queued" : "job_queued") : (flowJob ? "flow_job_running" : "job_running")))}</p>`;
+      return;
+    }
+    box.innerHTML = `<div class="split">
+        <button type="button" data-regen title="${esc(label("regen_hint", {model: modelName(CONFIG.model)}))}">⟳ ${esc(label("regen"))}</button>
+        <button type="button" data-regen-more aria-haspopup="dialog" aria-label="${esc(label("regen_more"))}" title="${esc(label("regen_more"))}">▾</button></div>`
+      + (job && job.state === "error" ? `<p class="job error">${esc(label(flowJob ? "flow_job_error" : "job_error", {error: job.error}))}</p>` : "");
+  }
+
+  async function regenerate(mode, model, note) {
+    const box = document.getElementById("regen");
+    box?.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    try {
+      const response = await fetch("/api/summarize", {method: "POST",
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN},
+        body: JSON.stringify({ids: [videoId], mode, regenerate: true, model, note})});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (result.skipped && result.skipped[videoId]) throw new Error(result.skipped[videoId]);
+    } catch (err) {
+      jobs = {...jobs, [videoId]: {state: "error", mode, error: err.message}};
+    }
+    await refreshJobs();
+    showRegen();
+  }
+
+  function openRegen() {
+    const note = (shownSummary && shownSummary.note) || "";
+    const models = CONFIG.models || [];
+    regenDialog.setAttribute("aria-label", label("regen_title"));
+    regenDialog.innerHTML = `<div class="add-head"><h2>${esc(label("regen_title"))}</h2>
+        <button type="button" class="add-close" data-regen-close aria-label="${esc(label("add_close"))}">×</button></div>
+      <form class="add-body regen-form" id="regen-form">
+        <fieldset><legend>${esc(label("regen_what"))}</legend>
+          <label class="check"><input type="radio" name="regen-mode" value="summary" checked>
+            <span>${esc(label("regen_summary"))}<span class="note">${esc(label("regen_summary_note"))}</span></span></label>
+          <label class="check"><input type="radio" name="regen-mode" value="flow">
+            <span>${esc(label("regen_flow"))}<span class="note">${esc(label("regen_flow_note"))}</span></span></label>
+        </fieldset>
+        <label for="regen-model">${esc(label("regen_model"))}</label>
+        <select id="regen-model"><option value="">${esc(label("regen_model_default", {model: modelName(CONFIG.model)}))}</option>
+          ${models.filter(m => m !== CONFIG.model).map(m => `<option value="${esc(m)}">${esc(modelName(m))}</option>`).join("")}</select>
+        <label for="regen-note">${esc(label("regen_note"))}</label>
+        <textarea id="regen-note" rows="4" maxlength="1000" placeholder="${esc(label("regen_note_placeholder"))}">${esc(note)}</textarea>
+        <p class="note">${esc(label("regen_note_hint"))}</p>
+        <p class="note">${esc(label("regen_kept"))}</p>
+      </form>
+      <div class="add-foot"><span class="grow"></span>
+        <button type="button" class="action secondary" data-regen-close>${esc(label("regen_cancel"))}</button>
+        <button type="submit" class="action" form="regen-form">⟳ ${esc(label("regen_start"))}</button></div>`;
+    if (!regenDialog.open) regenDialog.showModal();
+    document.getElementById("regen-note").focus();
+  }
+
+  document.addEventListener("click", e => {
+    if (e.target.closest("button[data-regen]")) regenerate("summary", "", (shownSummary && shownSummary.note) || "");
+    else if (e.target.closest("button[data-regen-more]")) openRegen();
+  });
+  regenDialog.addEventListener("click", e => {
+    if (e.target === regenDialog || e.target.closest("[data-regen-close]")) regenDialog.close();
+  });
+  regenDialog.addEventListener("submit", e => {
+    e.preventDefault();
+    const mode = regenDialog.querySelector('input[name="regen-mode"]:checked').value;
+    const model = document.getElementById("regen-model").value;
+    const note = document.getElementById("regen-note").value.trim();
+    regenDialog.close();
+    regenerate(mode, model, note);
+  });
+  regenDialog.addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) regenDialog.querySelector('button[type="submit"]').click();
+  });
 
   // ---------- adding videos: links or a YouTube search, the overview, then yt-fetch downloads in the background ----------
   const PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`;
