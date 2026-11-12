@@ -10,6 +10,7 @@
     --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --border: #e2e2e0;
     --accent: #c4302b; --accent-soft: #fbe9e8; --active: #e6effb;
     --star: #e2a400; --star-text: #1d1d1f; --star-soft: #fbf1d2; --star-strong: #8a5f00;
+    --scroll-thumb: #c4c4c8; color-scheme: light;
     --flow-silence: #c9c9ce; --flow-promo: #d64545; --flow-smalltalk: #e8833a; --flow-tangent: #d9a520;
     --flow-frame: #a3a3aa; --flow-context: #86c5bd; --flow-loose: #a9bfd6; --flow-solid: #3b7dd8; --flow-dense: #6a3fd1;
   }
@@ -18,6 +19,7 @@
       --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
       --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #1c2738;
       --star: #f2c14e; --star-text: #1d1d1f; --star-soft: #352c14; --star-strong: #f2c14e;
+      --scroll-thumb: #3d3d44; color-scheme: dark;
       --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
       --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
     }
@@ -26,13 +28,30 @@
     --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
     --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #1c2738;
     --star: #f2c14e; --star-text: #1d1d1f; --star-soft: #352c14; --star-strong: #f2c14e;
+    --scroll-thumb: #3d3d44; color-scheme: dark;
     --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
     --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
   }
   * { box-sizing: border-box; }
+  /* Thin scroll bars in the colors of the theme: only the thumb, without a track, border or arrows. */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; }
+  ::-webkit-scrollbar-button { display: none; }
+  @supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; } }
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px 64px; }
+  /* The window itself never scrolls: the page fills it, and only one part of it scrolls (.scroller): the list of
+     channels or videos, or on a video page the open tab. */
+  html, body { height: 100%; overflow: hidden; }
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; padding-bottom: 0; }
+  #app > :not(.scroller):not(.video-layout) { flex: none; }  /* the bars and headers keep their height */
+  /* The scroller is exactly as high as the blocks it shows, so its scroll bar never reaches above or below them. */
+  .scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 16px 0 16px;
+    margin-right: -12px; padding-right: 6px; }  /* the scroll bar just right of the content, in the page's margin */
+  .scroller > :first-child { margin-top: 0; }
+  .scroller > :last-child { margin-bottom: 0; }
   a { color: inherit; }
 
   header.top { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 20px 0 12px; }
@@ -86,7 +105,9 @@
   .toc-toggle:hover, .toc-toggle[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
   .video-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 420px); gap: 24px; align-items: start; }
   .video-layout.no-toc { grid-template-columns: minmax(0, 1fr); }
-  .pinned { position: sticky; top: var(--bar); z-index: 5; background: var(--bg); }
+  .video-layout { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .video-layout > .main { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+  .pinned, header.video-head, .tabs { flex: none; }
   .player { padding: 0 0 8px; }
   header.video-head { padding: 8px 0 4px; }
   /* The title with the regenerate button: the main part regenerates at once, the arrow opens the choices. */
@@ -116,13 +137,13 @@
   .regen-form label.check .note { display: block; margin: 0; }
   .regen-form select { font: inherit; font-size: .95rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text); margin-bottom: 14px; }
-  aside.toc { position: sticky; top: var(--bar); max-height: calc(100vh - var(--bar) - 16px); display: flex;
+  aside.toc { max-height: 100%; padding: 14px 0 16px; display: flex;
     flex-direction: column; gap: 12px; box-sizing: border-box; }
   aside.toc > .toc-topics { flex: 1 1 auto; min-height: 140px; overflow-y: auto; overscroll-behavior: contain;
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 10px; }
   /* With the flow, the column takes the whole height of the window: the topics at most half (less when they are
      few), the flow the rest, its chart stretching with it. */
-  aside.toc.with-flow { height: calc(100vh - var(--bar) - 16px); }
+  aside.toc.with-flow { height: 100%; }
   aside.toc.with-flow > .toc-topics { flex: 0 1 auto; max-height: 50%; }
   aside.toc.with-flow > .flow-panel { flex: 1 1 auto; min-height: 260px; display: flex; flex-direction: column; }
   aside.toc.with-flow .flow-chart { flex: 1 1 auto; height: auto; min-height: 160px; }
@@ -181,8 +202,8 @@
   aside.toc ul.topics li:hover { background: var(--accent-soft); }
   aside.toc ul.topics li.active { background: var(--active); }
   aside.toc ul.topics li span { font-size: .92rem; }
-  /* Tabs under the video: the overview with the description, and the main ideas. They stay under the player while scrolling. */
-  .tabs { position: sticky; z-index: 4; top: var(--tabs-top, var(--bar)); background: var(--bg); display: flex; gap: 4px;
+  /* Tabs under the video: the overview with the description, and the main ideas; only their content scrolls. */
+  .tabs { background: var(--bg); display: flex; gap: 4px;
     border-bottom: 1px solid var(--border); margin-top: 8px; }
   .tabs button { font: inherit; font-weight: 600; font-size: .95rem; background: none; border: 0; color: var(--muted);
     padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
@@ -193,7 +214,7 @@
   @media (max-width: 1099px) {
     .video-layout { grid-template-columns: minmax(0, 1fr); }
     .toc-toggle { display: block; }
-    aside.toc { display: none; position: fixed; z-index: 15; top: var(--bar); right: 16px; width: min(360px, calc(100vw - 32px));
+    aside.toc { display: none; position: fixed; z-index: 15; top: var(--bar); right: 16px; padding: 0; width: min(360px, calc(100vw - 32px));
       max-height: 65vh; box-shadow: 0 12px 32px rgba(0, 0, 0, .18); border-radius: 12px; }
     aside.toc.open { display: flex; }
     aside.toc.with-flow { height: auto; }
@@ -548,7 +569,7 @@
       }
       CONFIG = await getJson("/api/config"); L = CONFIG.labels;
       document.documentElement.lang = CONFIG.ui_language;
-      history.replaceState({scroll: window.scrollY}, "");
+      history.replaceState({scroll: scrollPos()}, "");
       await route();
       await openSettings();
       kept.forEach(([id, value]) => {
@@ -585,23 +606,27 @@
   // ---------- routing: / is the archive, /c/<id> a channel, /p/<id> a playlist, /v/<id> one video ----------
   // Going back returns to the place on the page where the user left it.
   history.scrollRestoration = "manual";
+  // The one part of the page that scrolls: the list, or the open tab of a video.
+  const scroller = () => document.querySelector(".scroller:not([hidden])");
+  const scrollPos = () => scroller()?.scrollTop ?? 0;
+  function setScroll(y) { const el = scroller(); if (el) el.scrollTop = y; }
+
   function route() {
     const match = location.pathname.match(/^\/([vcp])\/([\w-]+)$/);
     const scroll = (history.state && history.state.scroll) || 0;
     stopPlayer();
     closeSettings();
     app.classList.remove("wide");
-    window.scrollTo(0, 0);
     const page = !match ? showArchive({kind: "all"})
       : match[1] === "v" ? showVideo(match[2])
       : showArchive({kind: match[1] === "c" ? "channel" : "playlist", id: match[2]});
-    return page.then(() => { applyTheme(currentTheme()); window.scrollTo(0, scroll); });
+    return page.then(() => { applyTheme(currentTheme()); setScroll(scroll); });
   }
   document.addEventListener("click", e => {
     const link = e.target.closest("a[data-nav]");
     if (!link || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     e.preventDefault();
-    history.replaceState({scroll: window.scrollY}, "");
+    history.replaceState({scroll: scrollPos()}, "");
     history.pushState(null, "", link.getAttribute("href"));
     route();
   });
@@ -669,7 +694,7 @@
         <input type="search" id="q" placeholder="${esc(label(scope.kind === "all" ? "search_all" : "search"))}" value="${esc(filter.text)}">
         <label><input type="checkbox" id="only" ${filter.onlySummaries ? "checked" : ""}> ${esc(label("only_summaries"))}</label>
       </div>
-      <div id="list"></div>`;
+      <div id="list" class="scroller"></div>`;
     document.getElementById("q").addEventListener("input", e => { filter.text = e.target.value; writeFilter(); renderList(); });
     document.getElementById("only").addEventListener("change", e => { filter.onlySummaries = e.target.checked; writeFilter(); renderList(); });
     renderList();
@@ -794,6 +819,7 @@
           </article>`).join("")}
       </section>` : "";
 
+    const noteHtml = s && s.note ? `<footer>${esc(label("regen_note_shown", {note: s.note}))}</footer>` : "";
     const descriptionHtml = v.description ? `<section><details open><summary>${esc(label("description"))}</summary>
         <div class="description">${richText(v.description)}</div></details></section>` : "";
     app.classList.toggle("wide", Boolean(topics.length));
@@ -817,21 +843,20 @@
         <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" data-tab="overview">${esc(label("overview"))}</button>
         <button type="button" role="tab" id="tab-ideas" aria-controls="panel-ideas" data-tab="ideas">${esc(label("ideas"))} <span class="count">(${s.ideas.length})</span></button>
       </div>
-      <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
+      <div role="tabpanel" class="scroller" id="panel-overview" aria-labelledby="tab-overview">
         <section>${paragraphs(s.overview)}</section>
-        ${descriptionHtml}
+        ${descriptionHtml}${noteHtml}
       </div>
-      <div role="tabpanel" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}</div>`
-      : `<section class="notice"><p>${esc(label("no_summary"))}</p>
+      <div role="tabpanel" class="scroller" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}${noteHtml}</div>`
+      : `<div class="scroller"><section class="notice"><p>${esc(label("no_summary"))}</p>
               ${CONFIG.summarize && v.transcript ? `<div id="job-box"></div>` : ""}
               <p class="meta">${esc(label("no_summary_command"))}</p>
               <div class="command"><code>/yt-summary ${esc(id)}</code>
                 <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>
-      ${descriptionHtml}`}
-      ${s && s.note ? `<footer>${esc(label("regen_note_shown", {note: s.note}))}</footer>` : ""}
+      ${descriptionHtml}</div>`}
       </div>${tocHtml}</div>`;
     tabScroll = {};
-    if (s) { showTab(tab); pinTabs(); }
+    if (s) showTab(tab);
     setFlow(s && s.flow, v.duration, s && s.ideas);
     startPlayer(id);
     showJobBox();
@@ -839,31 +864,12 @@
   }
 
   // ---------- tabs of the video page ----------
-  // The tabs stick right under the player; each tab keeps its own scroll position.
-  let tabScroll = {}, pinnedObserver = null;
-  // The player stays at the top from the start, so its bottom edge is where the tabs stick.
-  const playerBottom = () => document.querySelector(".pinned")?.getBoundingClientRect().bottom ?? 0;
-  function placeTabs() {
-    const tabs = document.querySelector(".tabs");
-    if (tabs) tabs.style.setProperty("--tabs-top", `${Math.round(playerBottom())}px`);
-  }
-  function pinTabs() {
-    const pinned = document.querySelector(".pinned");
-    placeTabs();
-    pinnedObserver?.disconnect();
-    if (pinned) (pinnedObserver = new ResizeObserver(placeTabs)).observe(pinned);
-  }
-  window.addEventListener("resize", placeTabs);
+  // Each tab scrolls on its own and keeps its place while the other one is shown.
+  let tabScroll = {};
   const currentTab = () => document.querySelector('.tabs [aria-selected="true"]')?.dataset.tab;
-  // Scroll position where the tabs reach the player and stick there.
-  function tabsStickAt() {
-    const head = document.querySelector("header.video-head");
-    return head.getBoundingClientRect().bottom + window.scrollY + 8 - playerBottom();
-  }
-  function showTab(name, keepScroll = false) {
-    placeTabs();
-    const before = currentTab(), stick = tabsStickAt();
-    if (before) tabScroll[before] = window.scrollY;
+  function showTab(name) {
+    const before = currentTab();
+    if (before) tabScroll[before] = scrollPos();
     document.querySelectorAll(".tabs [role=tab]").forEach(b => {
       const on = b.dataset.tab === name;
       b.setAttribute("aria-selected", String(on));
@@ -871,8 +877,7 @@
       document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
     });
     try { localStorage.setItem("yt-summary-tab", name); } catch (e) {}
-    // Below the tabs, start the other tab where it was left (at least at its top), not somewhere in the middle.
-    if (!keepScroll && before && before !== name && window.scrollY >= stick - 1) window.scrollTo(0, Math.max(stick, tabScroll[name] ?? stick));
+    if (before !== name) setScroll(tabScroll[name] ?? 0);
   }
   document.addEventListener("click", e => {
     const button = e.target.closest(".tabs [role=tab]");
@@ -1312,9 +1317,9 @@
     const finished = downloads.some(d => ["queued", "running"].includes(before.get(d.id)) && !["queued", "running"].includes(d.state));
     if (finished) {
       if (pageKind === "archive") {  // the new videos and channels appear in the list
-        const y = window.scrollY;
+        const y = scrollPos();
         await showArchive(scope);
-        window.scrollTo(0, y);
+        setScroll(y);
       }
       refreshJobs();
     }
@@ -1410,10 +1415,9 @@
     const ideas = [...document.querySelectorAll(".idea")].map(el => [Number(el.dataset.t), el]).sort((a, b) => a[0] - b[0]);
     const target = (ideas.filter(([t]) => t <= start + 5).pop() || ideas[0] || [])[1];
     if (!target) return;
-    if (document.querySelector(".tabs") && currentTab() !== "ideas") showTab("ideas", true);
-    placeTabs();
-    const covered = playerBottom() + (document.querySelector(".tabs")?.offsetHeight ?? 0);
-    window.scrollTo({top: target.getBoundingClientRect().top + window.scrollY - covered - 12,
+    if (document.querySelector(".tabs") && currentTab() !== "ideas") showTab("ideas");
+    const panel = target.closest(".scroller");
+    panel?.scrollTo({top: target.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - 12,
                      behavior: document.visibilityState === "visible" ? "smooth" : "auto"});
     document.querySelectorAll(".idea").forEach(el => el.classList.toggle("active", el === target));
   }
