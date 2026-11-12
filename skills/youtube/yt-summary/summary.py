@@ -230,12 +230,16 @@ LABELS = {
     "regen_cancel": "Cancel",
     "regen_start": "Regenerate",
     "regen_note_shown": "note: {note}",
+    "version": "Version",
+    "version_current": "Current · {date}",
+    "version_old": "Older · {date}",
+    "version_notice": "An older version of the summary, from {date}.",
+    "version_show_current": "Show the current version",
     "theme_auto": "Auto",
     "theme_light": "Light",
     "theme_dark": "Dark",
     "open_youtube": "Open on YouTube",
     "player_fallback": "The video cannot be played on this page. Times open it on YouTube in a new tab.",
-    "source": "Summary of the transcript",
 }
 
 
@@ -686,8 +690,30 @@ def list_page(port, kind, list_id):
     return f"http://127.0.0.1:{port}/{'c' if kind == 'channel' else 'p'}/{list_id}"
 
 
-def video_payload(root, video_id, language):
+VERSION = re.compile(r"\d{4}-\d{2}-\d{2}(?:-\d+)?")
+
+
+def summary_versions(folder, language):
+    """The kept older summaries (summary.<lang>.<date>.json), newest first: [{"version", "created_at", "note"}]."""
+    versions = []
+    for path in folder.glob(f"summary.{language}.*.json"):
+        stamp = path.name[len(f"summary.{language}."):-len(".json")]
+        if not VERSION.fullmatch(stamp):
+            continue
+        data = read_json(path, {}) or {}
+        if isinstance(data, dict):
+            versions.append({"version": stamp, "created_at": str(data.get("created_at") or ""),
+                             "note": data.get("note") or None})
+    number = lambda v: int(v["version"][11:] or 1)
+    return sorted(versions, key=lambda v: (v["created_at"], v["version"][:10], number(v)), reverse=True)
+
+
+def video_payload(root, video_id, language, version=None):
+    """The video for the viewer, with its current summary, or with version (a date stamp) that kept version."""
     folder = video_folder(root, video_id)
+    if version is not None and not (VERSION.fullmatch(version)
+                                    and (folder / f"summary.{language}.{version}.json").exists()):
+        raise Fail(f"no summary version {version}")
     info = read_json(folder / "info.json", {}) or {}
     try:
         description = (folder / "description.txt").read_text(encoding="utf-8")
@@ -698,7 +724,9 @@ def video_payload(root, video_id, language):
             "id", "title", "channel", "channel_id", "upload_date", "duration", "view_count", "chapters")},
         "transcript": (info.get("fetch") or {}).get("transcript"),
         "description": description,
-        "summary": read_json(folder / f"summary.{language}.json"),
+        "summary": read_json(folder / (f"summary.{language}.{version}.json" if version else f"summary.{language}.json")),
+        "version": version,
+        "versions": summary_versions(folder, language),
     }
 
 
@@ -1152,7 +1180,8 @@ def make_handler(port):
             # Only pages opened on this computer's own address may read the archive (no DNS rebinding).
             if self.headers.get("Host") not in allowed_hosts:
                 return self.send_error(403)
-            path = urllib.parse.urlsplit(self.path).path
+            url = urllib.parse.urlsplit(self.path)
+            path = url.path
             config = load_config()
             root = archive_root(config)
             language = config["language"]
@@ -1180,7 +1209,8 @@ def make_handler(port):
                 if path == "/api/playlists":
                     return self.send_json(list_playlists(root))
                 if match := re.fullmatch(r"/api/video/([\w-]+)", path):
-                    return self.send_json(video_payload(root, match[1], language))
+                    version = urllib.parse.parse_qs(url.query).get("version", [None])[0]
+                    return self.send_json(video_payload(root, match[1], language, version))
                 if match := re.fullmatch(r"/api/thumb/([\w-]+)", path):
                     return self.send_body((video_folder(root, match[1]) / "thumbnail.jpg").read_bytes(), "image/jpeg",
                                           cache="max-age=86400")

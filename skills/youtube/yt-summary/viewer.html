@@ -95,6 +95,13 @@
   #regen { flex: none; margin-top: 6px; max-width: 100%; }
   #regen .job { font-size: .88rem; margin: 0; }
   #regen .job.error { max-width: 420px; font-size: .82rem; margin-top: 6px; }
+  .head-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .version-pick select { font: inherit; font-size: .85rem; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); max-width: 260px; }
+  .old-version { display: flex; gap: 8px 16px; align-items: center; flex-wrap: wrap; margin: 8px 0 4px; padding: 10px 14px;
+    border-radius: 10px; background: var(--star-soft); border: 1px solid var(--star); }
+  .old-version p { margin: 0; flex: 1 1 260px; }
+  .old-version a { font-weight: 600; color: var(--accent); }
   .split { display: inline-flex; }
   .split button { font: inherit; font-size: .85rem; font-weight: 600; padding: 5px 12px; cursor: pointer; background: var(--surface);
     color: var(--accent); border: 1px solid var(--accent); }
@@ -749,7 +756,8 @@
   async function showVideo(id) {
     videoId = id;
     pageKind = "video";
-    const v = await getJson(`/api/video/${encodeURIComponent(id)}`);
+    const wanted = new URLSearchParams(location.search).get("version");
+    const v = await getJson(`/api/video/${encodeURIComponent(id)}${wanted ? `?version=${encodeURIComponent(wanted)}` : ""}`);
     const back = `<a class="back" href="/" data-nav>← ${esc(label("back"))}</a>`;
     if (v.error) {
       document.title = label("not_found");
@@ -759,6 +767,7 @@
     document.title = v.title;
     const s = v.summary;
     shownSummary = s;
+    shownVersion = v.version;
     const meta = [v.channel ? `<a href="/c/${esc(v.channel_id)}" data-nav>${esc(v.channel)}</a>` : "",
       esc(day(v.upload_date)), hms(v.duration)].filter(Boolean).join(" · ");
 
@@ -787,7 +796,6 @@
 
     const descriptionHtml = v.description ? `<section><details open><summary>${esc(label("description"))}</summary>
         <div class="description">${richText(v.description)}</div></details></section>` : "";
-    const transcript = v.transcript ? ` (${v.transcript.language}, ${v.transcript.kind})` : "";
     app.classList.toggle("wide", Boolean(topics.length));
     app.innerHTML = `
       <div class="bar">${back}
@@ -798,8 +806,11 @@
         <div class="player"><div class="frame"><div id="player"></div></div><p class="fallback">${esc(label("player_fallback"))}</p></div>
         ${s && s.flow ? `<div class="flow-mini" id="flow-mini" role="img" aria-label="${esc(label("flow"))}"></div>` : ""}
       </div>
-      <header class="video-head"><div class="title-row"><h1>${esc(v.title)}</h1>${s && CONFIG.summarize ? `<div id="regen"></div>` : ""}</div>
+      <header class="video-head"><div class="title-row"><h1>${esc(v.title)}</h1>
+        ${s ? `<div class="head-tools">${versionPicker(v)}${CONFIG.summarize ? `<div id="regen"></div>` : ""}</div>` : ""}</div>
         <div class="meta">${meta} · <a href="https://www.youtube.com/watch?v=${esc(id)}" target="_blank" rel="noopener">${esc(label("open_youtube"))}</a></div>
+        ${v.version && s ? `<div class="old-version" role="status"><p>${esc(label("version_notice", {date: when(s.created_at) || v.version}))}</p>
+          <a href="/v/${esc(id)}" data-nav>${esc(label("version_show_current"))}</a></div>` : ""}
       </header>
       ${s ? `
       <div class="tabs" role="tablist">
@@ -817,8 +828,7 @@
               <div class="command"><code>/yt-summary ${esc(id)}</code>
                 <button type="button" data-copy="/yt-summary ${esc(id)}">${esc(label("copy"))}</button></div></section>
       ${descriptionHtml}`}
-      ${s ? `<footer>${esc(label("source"))}${esc(transcript)} · ${esc((s.created_at || "").slice(0, 10))}${
-        s.note ? ` · ${esc(label("regen_note_shown", {note: s.note}))}` : ""}</footer>` : ""}
+      ${s && s.note ? `<footer>${esc(label("regen_note_shown", {note: s.note}))}</footer>` : ""}
       </div>${tocHtml}</div>`;
     tabScroll = {};
     if (s) { showTab(tab); pinTabs(); }
@@ -962,7 +972,32 @@
   // ---------- regenerating a summary: at once with the defaults, or with the choices of the dialog ----------
   // The server keeps the current version as summary.<lang>.<date>.json first.
   const regenDialog = document.getElementById("regen-dialog");
-  let shownSummary = null;
+  let shownSummary = null, shownVersion = null;
+
+  // ---------- older versions of the summary: kept when it was made again, shown read-only ----------
+  // A time of the summary in the reader's time zone: 2026-11-12 13:12.
+  function when(iso) {
+    const t = new Date(iso);
+    if (!iso || isNaN(t)) return "";
+    const two = n => String(n).padStart(2, "0");
+    return `${t.getFullYear()}-${two(t.getMonth() + 1)}-${two(t.getDate())} ${two(t.getHours())}:${two(t.getMinutes())}`;
+  }
+  function versionPicker(v) {
+    if (!v.versions || !v.versions.length) return "";
+    const current = v.version ? null : v.summary;
+    const options = [`<option value=""${v.version ? "" : " selected"}>${esc(label("version_current",
+        {date: when((current || {}).created_at) || "–"}))}</option>`]
+      .concat(v.versions.map(x => `<option value="${esc(x.version)}"${x.version === v.version ? " selected" : ""}>${
+        esc(label("version_old", {date: when(x.created_at) || x.version}))}</option>`));
+    return `<span class="version-pick"><select id="version-pick" aria-label="${esc(label("version"))}"
+      title="${esc(label("version"))}">${options.join("")}</select></span>`;
+  }
+  document.addEventListener("change", e => {
+    if (e.target.id !== "version-pick") return;
+    const version = e.target.value;
+    history.pushState(null, "", `/v/${encodeURIComponent(videoId)}${version ? `?version=${encodeURIComponent(version)}` : ""}`);
+    route();
+  });
   const modelName = m => m === "inherit" ? label("settings_model_inherit") : m[0].toUpperCase() + m.slice(1);
 
   function showRegen() {
@@ -991,6 +1026,10 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (result.skipped && result.skipped[videoId]) throw new Error(result.skipped[videoId]);
+      if (shownVersion) {
+        history.pushState(null, "", `/v/${encodeURIComponent(videoId)}`);
+        await route();
+      }
     } catch (err) {
       jobs = {...jobs, [videoId]: {state: "error", mode, error: err.message}};
     }
@@ -1411,7 +1450,7 @@
     if (!panel) return;
     if (!flow) {
       panel.innerHTML = `<div class="flow-top"><h2>${esc(label("flow"))}</h2></div>
-        <div class="flow-missing"><p>${esc(label("flow_missing"))}</p><div id="flow-job"></div></div>`;
+        <div class="flow-missing"><p>${esc(label("flow_missing"))}</p>${shownVersion ? "" : `<div id="flow-job"></div>`}</div>`;
       showFlowJob();
       return;
     }
