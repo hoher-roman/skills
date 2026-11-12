@@ -149,7 +149,7 @@ LABELS = {
     "flow_kind_solid": "Content: solid",
     "flow_kind_dense": "Content: dense",
     "flow_ideas": "Main idea",
-    "highlight": "Don't miss",
+    "highlight": "Important",
     "add": "Add videos",
     "add_title": "Add videos to the archive",
     "add_hint": "Links to videos, playlists or channels, one per line, or words to search YouTube for",

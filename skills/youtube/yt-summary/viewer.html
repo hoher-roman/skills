@@ -8,21 +8,24 @@
 <style>
   :root {
     --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --border: #e2e2e0;
-    --accent: #c4302b; --accent-soft: #fbe9e8; --active: #fff6d6;
+    --accent: #c4302b; --accent-soft: #fbe9e8; --active: #e6effb;
+    --star: #e2a400; --star-text: #1d1d1f; --star-soft: #fbf1d2; --star-strong: #8a5f00;
     --flow-silence: #c9c9ce; --flow-promo: #d64545; --flow-smalltalk: #e8833a; --flow-tangent: #d9a520;
     --flow-frame: #a3a3aa; --flow-context: #86c5bd; --flow-loose: #a9bfd6; --flow-solid: #3b7dd8; --flow-dense: #6a3fd1;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
-      --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+      --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #1c2738;
+      --star: #f2c14e; --star-text: #1d1d1f; --star-soft: #352c14; --star-strong: #f2c14e;
       --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
       --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
     }
   }
   :root[data-theme="dark"] {
     --bg: #121214; --surface: #1c1c1f; --text: #ececee; --muted: #9a9aa2; --border: #2e2e33;
-    --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #2f2a17;
+    --accent: #ff6b63; --accent-soft: #3a1f1e; --active: #1c2738;
+    --star: #f2c14e; --star-text: #1d1d1f; --star-soft: #352c14; --star-strong: #f2c14e;
     --flow-silence: #4a4a52; --flow-promo: #ff6b63; --flow-smalltalk: #ff9a52; --flow-tangent: #f0c14b;
     --flow-frame: #7d7d86; --flow-context: #6fb3ab; --flow-loose: #8aa0b4; --flow-solid: #5b94e6; --flow-dense: #a07af5;
   }
@@ -115,15 +118,15 @@
     pointer-events: none; display: none; }
   .flow-chart .playhead::before { content: ""; position: absolute; left: -2px; top: -5px; border: 4px solid transparent;
     border-left: 6px solid var(--text); }
-  /* The main ideas on the flow: numbered dots at their times; the ones not to miss with a star. */
+  /* The main ideas on the flow: numbered dots at their times; the important ones with a gold star. */
   .flow-chart .idea-dot { position: absolute; transform: translate(-50%, -50%); min-width: 15px; height: 15px; padding: 0 2px;
     box-sizing: border-box; border-radius: 8px; background: var(--surface); color: var(--text); border: 1.5px solid var(--text);
     font-size: .6rem; font-weight: 700; line-height: 12px; text-align: center; pointer-events: none; }
-  .flow-chart .idea-dot.star { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .flow-chart .idea-dot.star { background: var(--star); border-color: var(--star-text); color: var(--star-text); }
   .hatch { background-image: repeating-linear-gradient(45deg, transparent 0 3px, rgba(127, 127, 127, .35) 3px 5px); }
   .highlight { display: flex; gap: 8px; align-items: baseline; margin: 2px 0 8px; padding: 6px 10px; border-radius: 8px;
-    background: var(--accent-soft); font-size: .92rem; }
-  .highlight b { color: var(--accent); white-space: nowrap; }
+    background: var(--star-soft); font-size: .92rem; }
+  .highlight b { color: var(--star-strong); white-space: nowrap; }
   .flow-strip-seg { position: absolute; left: 38px; width: 22px; box-sizing: border-box; border-bottom: 1px solid var(--surface); }
   .flow-strip-label { position: absolute; left: 68px; right: 0; font-size: .74rem; line-height: 1.25; color: var(--text);
     transform: translateY(-1px); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
@@ -136,7 +139,7 @@
   .flow-legend li { display: flex; align-items: center; gap: 6px; }
   .flow-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
   .flow-legend i.dot { border-radius: 50%; border: 1.5px solid var(--text); box-sizing: border-box; background: var(--surface); }
-  .flow-legend i.dot.star { background: var(--accent); border-color: var(--accent); }
+  .flow-legend i.dot.star { background: var(--star); border-color: var(--star-text); }
   .flow-missing p { font-size: .88rem; color: var(--muted); margin: 0 0 8px; }
   .flow-missing button.action { margin: 0; padding: 6px 12px; font-size: .88rem; }
   /* Narrow screens: a thin strip under the player instead of the panel. */
