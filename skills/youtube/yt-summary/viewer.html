@@ -98,7 +98,12 @@
   .bar { position: sticky; top: 0; z-index: 6; background: var(--bg); height: var(--bar); box-sizing: border-box;
     display: flex; align-items: center; gap: 10px; }
   :root { --bar: 52px; }
-  .bar .back { margin: 0 auto 0 0; }
+  .bar .back, .bar .crumbs { margin: 0 auto 0 0; }
+  /* On a video page: back to the archive, or to the video's channel. */
+  .crumbs { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .crumbs .back { margin: 0; }
+  .crumbs .back + .back { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40vw; }
+  .crumbs .sep { color: var(--muted); font-size: .9rem; }
   .bar .gear { width: 34px; height: 34px; }
   .toc-toggle { display: none; font: inherit; font-size: .9rem; font-weight: 600; height: 34px; padding: 0 12px;
     border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
@@ -824,7 +829,8 @@
         <div class="description">${richText(v.description)}</div></details></section>` : "";
     app.classList.toggle("wide", Boolean(topics.length));
     app.innerHTML = `
-      <div class="bar">${back}
+      <div class="bar">${v.channel_id ? `<nav class="crumbs">${back}<span class="sep" aria-hidden="true">/</span>
+        <a class="back" href="/c/${esc(v.channel_id)}" data-nav>${esc(v.channel || v.channel_id)}</a></nav>` : back}
         ${topics.length ? `<button type="button" class="toc-toggle" aria-controls="toc" aria-expanded="false">${esc(topicsTitle)} ▾</button>` : ""}
         ${topButtons()}</div>
       <div class="video-layout${topics.length ? "" : " no-toc"}"><div class="main">
