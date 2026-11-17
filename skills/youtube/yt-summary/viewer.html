@@ -246,6 +246,29 @@
   h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 4px; }
   p { margin: 0 0 8px; }
   .notice { background: var(--accent-soft); border-color: transparent; }
+  /* The context above the overview: people, event, format and tools, each row with its icon. */
+  .context { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px 10px; align-items: start;
+    padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); font-size: .92rem; }
+  .context .ico { width: 20px; height: 20px; color: var(--muted); margin-top: 2px; }
+  .context .items { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+  .context .card { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; background: var(--bg); min-width: 0; max-width: 100%; text-align: left; font: inherit; color: inherit; }
+  .context .card .ico { width: 18px; height: 18px; margin-top: 1px; flex: none; }
+  .context .card.host .ico { color: var(--accent); }
+  .context .card b { font-weight: 600; }
+  .context .card .sub { display: block; font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+  .context .role { font-size: .75rem; color: var(--muted); margin-left: 4px; }
+  .context .card.host .role { color: var(--accent); }
+  .context button.card { cursor: pointer; }
+  .context button.card:hover { border-color: var(--accent); }
+  .context .muted { color: var(--muted); }
+  .context .qa { display: inline-flex; gap: 5px; align-items: center; font-size: .82rem; background: var(--accent-soft);
+    border-radius: 6px; padding: 2px 8px; }
+  .context .qa .ico { width: 15px; height: 15px; margin: 0; color: inherit; }
+  .context-missing { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; color: var(--muted); font-size: .85rem;
+    padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .context-missing p { margin: 0; }
+  .context-missing button.action { font-size: .82rem; padding: 4px 12px; }
   .command { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .command code { font: .95rem ui-monospace, Consolas, monospace; background: var(--surface); border: 1px solid var(--border);
     border-radius: 6px; padding: 4px 10px; }
@@ -836,6 +859,47 @@
     return `<a class="t" href="https://www.youtube.com/watch?v=${esc(videoId)}&amp;t=${t}s" data-t="${t}" target="_blank" rel="noopener">${esc(text || hms(t))}</a>`;
   }
 
+  // Icons of the context block: simple outline drawings in the text color.
+  const ICONS = {
+    people: '<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2M16 3.13a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.85"/>',
+    person: '<circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>',
+    host: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M8 21h8M12 17v4"/>',
+    event: '<circle cx="12" cy="11" r="3"/><path d="M17.66 16.66 13.41 20.9a2 2 0 0 1-2.83 0l-4.24-4.24a8 8 0 1 1 11.32 0z"/>',
+    format: '<path d="M3 4h18M4 4v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4M12 16v4M9 20h6M8 12l3-3 2 2 3-3"/>',
+    qa: '<path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"/><path d="M12 14v.01M10.6 9a1.5 1.5 0 1 1 1.4 2"/>',
+    tool: '<path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10"/>',
+    plugin: '<path d="M4 7h3a1 1 0 0 0 1-1V5a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-1a2 2 0 0 0-4 0v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a2 2 0 0 0 0-4H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1"/>',
+  };
+  const icon = (name, title) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+    stroke-linecap="round" stroke-linejoin="round"${title ? ` role="img" aria-label="${esc(title)}"><title>${esc(title)}</title>` : ` aria-hidden="true">`}${ICONS[name]}</svg>`;
+
+  // The context of a summary: the people, the event, the format with the audience questions, the tools.
+  // A tool opens the statements about it when the summary has them.
+  function contextHtml(c, linkTools) {
+    if (!c || typeof c !== "object") return "";
+    const rows = [];
+    const people = Array.isArray(c.people) ? c.people.filter(x => x && x.name) : [];
+    if (people.length) rows.push([icon("people", label("context_people")), people.map(x => {
+      const host = x.role === "host", sub = [x.title, x.org].filter(Boolean).join(" · ");
+      return `<div class="card${host ? " host" : ""}">${icon(host ? "host" : "person")}<div><b>${esc(x.name)}</b>${
+        x.role ? `<span class="role">${esc(label(`context_role_${x.role}`))}</span>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</div></div>`;
+    }).join("")]);
+    if (c.event && c.event.name) rows.push([icon("event", label("context_event")),
+      `<span><b>${esc(c.event.name)}</b>${c.event.place ? ` <span class="muted">· ${esc(c.event.place)}</span>` : ""}</span>`]);
+    if (c.format && c.format.kind) rows.push([icon("format", label("context_format")),
+      `<span>${esc(label(`context_format_${c.format.kind}`))}</span>${c.format.qa != null
+        ? `<span class="qa">${icon("qa")}${timeLink(c.format.qa, label("context_qa", {time: hms(seconds(c.format.qa))}))}</span>` : ""}`]);
+    const tools = Array.isArray(c.tools) ? c.tools.filter(x => x && x.name) : [];
+    if (tools.length) rows.push([icon("tool", label("context_tools")), tools.map(x => {
+      const inner = `${icon(x.kind === "plugin" ? "plugin" : "tool", x.kind ? label(`context_tool_kind_${x.kind}`) : "")}<div><b>${esc(x.name)}</b>${
+        x.note ? `<span class="sub">${esc(x.note)}</span>` : ""}</div>`;
+      return linkTools ? `<button type="button" class="card" data-ctx-tool="${esc(x.name)}" title="${esc(label("context_tool_hint", {name: x.name}))}">${inner}</button>`
+        : `<div class="card">${inner}</div>`;
+    }).join("")]);
+    if (!rows.length) return "";
+    return `<div class="context" aria-label="${esc(label("context"))}">${rows.map(([ico, items]) => `${ico}<div class="items">${items}</div>`).join("")}</div>`;
+  }
+
   // Description: links become clickable, times seek the video.
   function richText(text) {
     return esc(text)
@@ -913,7 +977,9 @@
         ${v.description ? `<button type="button" role="tab" id="tab-description" aria-controls="panel-description" data-tab="description">${esc(label("description"))}</button>` : ""}
       </div>
       <div role="tabpanel" class="scroller" id="panel-overview" aria-labelledby="tab-overview">
-        <section>${paragraphs(s.overview)}</section>${noteHtml}
+        <section>${s.context ? contextHtml(s.context, Boolean(v.sentences && s.statements))
+          : CONFIG.summarize && !v.version ? `<div class="context-missing"><p>${esc(label("context_missing"))}</p><div id="context-job"></div></div>` : ""}
+          ${paragraphs(s.overview)}</section>${noteHtml}
       </div>
       <div role="tabpanel" class="scroller" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}${noteHtml}</div>
       <div role="tabpanel" class="scroller" id="panel-statements" aria-labelledby="tab-statements"></div>
@@ -930,6 +996,7 @@
     setFlow(s && s.flow, v.duration, s && s.ideas);
     setStatements(v.sentences, s && s.statements, v.marks);
     if (s) showTab(tab);
+    showPartJob("context");
     startPlayer(id);
     showJobBox();
     showRegen();
@@ -970,7 +1037,8 @@
   const isActive = id => jobs[id] && (jobs[id].state === "queued" || jobs[id].state === "running");
 
   // Buttons of a channel or playlist page: missing summaries, and flows missing in existing summaries.
-  const listButtons = list => summarizeListButton(list) + partListButton(list, "flow") + partListButton(list, "statements");
+  const listButtons = list => summarizeListButton(list) + partListButton(list, "flow") + partListButton(list, "statements")
+    + partListButton(list, "context");
   function partListButton(list, part) {
     const missing = list.filter(v => v.summary && !v[part] && !isActive(v.id));
     if (!CONFIG.summarize || !missing.length) return "";
@@ -1020,6 +1088,7 @@
         showJobBox();
         showPartJob("flow");
         showPartJob("statements");
+        showPartJob("context");
         showRegen();
       } else if (document.getElementById("list")) {
         if (finished.length) videos = await getJson("/api/videos");
@@ -1131,6 +1200,8 @@
             <span>${esc(label("regen_flow"))}<span class="note">${esc(label("regen_flow_note"))}</span></span></label>
           <label class="check"><input type="radio" name="regen-mode" value="statements">
             <span>${esc(label("regen_statements"))}<span class="note">${esc(label("regen_statements_note"))}</span></span></label>
+          <label class="check"><input type="radio" name="regen-mode" value="context">
+            <span>${esc(label("regen_context"))}<span class="note">${esc(label("regen_context_note"))}</span></span></label>
         </fieldset>
         <label for="regen-model">${esc(label("regen_model"))}</label>
         <select id="regen-model"><option value="">${esc(label("regen_model_default", {model: modelName(CONFIG.model)}))}</option>
@@ -1859,6 +1930,24 @@
     } else return;
     drawStatements();
   });
+  // A tool of the context: the statements whose thoughts name it, or else whose text mentions it.
+  document.addEventListener("click", e => {
+    const button = e.target.closest("[data-ctx-tool]");
+    if (!button) return;
+    showTab("statements");
+    if (!st) return;
+    const name = button.dataset.ctxTool, key = plain(name);
+    stFilter = stEmptyFilter();
+    document.querySelectorAll("#panel-statements [data-st-chip]").forEach(c => c.setAttribute("aria-pressed", "false"));
+    const term = st.thoughts.flatMap(th => th.terms).find(t => plain(t) === key);
+    if (term) stFilter.term = term;
+    else stFilter.q = name;
+    const q = document.getElementById("st-q");
+    if (q) q.value = term ? "" : name;
+    drawStatements();
+    setScroll(0);
+  });
+
   // Shift+click anywhere on a sentence's row marks it, or unmarks it; the marks are saved in the archive.
   document.addEventListener("mousedown", e => {  // no text selection from Shift+click
     if (e.shiftKey && st && e.target.closest("#panel-statements tr.row") && !e.target.closest("a, button")) e.preventDefault();

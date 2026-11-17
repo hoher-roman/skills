@@ -271,6 +271,38 @@ LABELS = {
     "st_thought": "Thought",
     "st_idea": "Main idea {n}",
     "st_nothing": "No sentence matches the filters.",
+    "context": "About the video",
+    "context_people": "People",
+    "context_event": "Event",
+    "context_format": "Format",
+    "context_tools": "Tools",
+    "context_role_host": "host",
+    "context_role_guest": "guest",
+    "context_role_speaker": "speaker",
+    "context_role_panelist": "panelist",
+    "context_format_talk": "Talk by one speaker",
+    "context_format_interview": "Interview",
+    "context_format_panel": "Panel discussion",
+    "context_format_discussion": "Discussion",
+    "context_format_tutorial": "Tutorial",
+    "context_format_demo": "Demo",
+    "context_format_stream": "Live stream",
+    "context_qa": "Audience questions from {time}",
+    "context_tool_kind_tool": "Tool",
+    "context_tool_kind_plugin": "Plugin or extension",
+    "context_tool_kind_service": "Service",
+    "context_tool_kind_model": "Model",
+    "context_tool_kind_library": "Library",
+    "context_tool_hint": "Show the statements about {name}",
+    "context_missing": "No details about the video yet: the people, the event, the format and the tools.",
+    "context_create": "Find the details",
+    "context_create_list": "Add missing details ({n})",
+    "context_confirm": "Find the people, event, format and tools for the summaries that have none? Videos: {n}, total length {time}, model {model}. It runs in the background on your Claude account; the summaries themselves stay as they are.",
+    "context_job_queued": "The details are waiting in the queue…",
+    "context_job_running": "Finding the details… This usually takes a minute or two.",
+    "context_job_error": "The details could not be found: {error}",
+    "regen_context": "Only the details",
+    "regen_context_note": "The people, the event, the format and the tools; the rest of the summary stays.",
     "regen_statements": "Only the statements",
     "regen_statements_note": "Every sentence with its kind, grouped into thoughts; the rest of the summary stays.",
     "regen_model": "Model for this run",
@@ -749,6 +781,64 @@ def statements_problems(statements, sentence_count, idea_count):
     return problems
 
 
+# The context of a summary: who speaks, at what event, in what format, about which tools.
+PERSON_ROLES = ("host", "guest", "speaker", "panelist")
+FORMAT_KINDS = ("talk", "interview", "panel", "discussion", "tutorial", "demo", "stream")
+TOOL_KINDS = ("tool", "plugin", "service", "model", "library")
+
+
+def context_problems(context, duration):
+    """What is wrong with the context of a summary."""
+    if not isinstance(context, dict):
+        return ["context is not an object"]
+    problems = []
+    people = context.get("people")
+    if not isinstance(people, list):
+        problems.append("context.people must be a list ([] when nobody is named)")
+    else:
+        hosts_done = False
+        for number, person in enumerate(people, 1):
+            where = f"context.people[{number}]"
+            if not isinstance(person, dict) or not str(person.get("name") or "").strip():
+                problems.append(f"{where}: missing name")
+                continue
+            if person.get("role") not in PERSON_ROLES:
+                problems.append(f"{where}: role {person.get('role')!r} is not one of {', '.join(PERSON_ROLES)}")
+            if person.get("role") == "host" and hosts_done:
+                problems.append(f"{where}: hosts come first, before the other people")
+            hosts_done = hosts_done or person.get("role") != "host"
+            for field in ("title", "org"):
+                if field in person and not isinstance(person[field], str):
+                    problems.append(f"{where}: {field} must be text")
+    event = context.get("event")
+    if event is not None and not (isinstance(event, dict) and str(event.get("name") or "").strip()):
+        problems.append("context.event must be {\"name\": ..., \"place\": ...} or null")
+    fmt = context.get("format")
+    if not isinstance(fmt, dict) or fmt.get("kind") not in FORMAT_KINDS:
+        problems.append(f"context.format.kind must be one of {', '.join(FORMAT_KINDS)}")
+    elif fmt.get("qa") is not None:
+        try:
+            at = seconds_of(fmt["qa"])
+            if at < 0 or (duration and at > duration):
+                problems.append(f"context.format.qa {hms(at)} is outside the video")
+        except (TypeError, ValueError):
+            problems.append(f"context.format.qa {fmt['qa']!r} is not seconds or m:ss")
+    tools = context.get("tools")
+    if not isinstance(tools, list):
+        problems.append("context.tools must be a list ([] when none)")
+    else:
+        for number, tool in enumerate(tools, 1):
+            where = f"context.tools[{number}]"
+            if not isinstance(tool, dict) or not str(tool.get("name") or "").strip():
+                problems.append(f"{where}: missing name")
+                continue
+            if tool.get("kind") not in TOOL_KINDS:
+                problems.append(f"{where}: kind {tool.get('kind')!r} is not one of {', '.join(TOOL_KINDS)}")
+            if "note" in tool and not isinstance(tool["note"], str):
+                problems.append(f"{where}: note must be text")
+    return problems
+
+
 def summary_problems(summary, duration, sentence_count=None):
     """What in summary.json the viewer could not show, as readable sentences."""
     problems = []
@@ -785,6 +875,8 @@ def summary_problems(summary, duration, sentence_count=None):
     ideas = summary.get("ideas") if isinstance(summary.get("ideas"), list) else []
     if "statements" in summary:  # added on request
         problems += statements_problems(summary["statements"], sentence_count, len(ideas))
+    if "context" in summary:  # summaries made before the context existed have none
+        problems += context_problems(summary["context"], duration)
     highlighted = [i for i, idea in enumerate(ideas, 1) if isinstance(idea, dict) and "highlight" in idea]
     if len(highlighted) > MAX_HIGHLIGHTS:
         problems.append(f"{len(highlighted)} ideas have a highlight; at most {MAX_HIGHLIGHTS} may have one")
@@ -822,6 +914,7 @@ def list_videos(root, language):
         "summary": bool(summary),
         "flow": bool(summary.get("flow")),
         "statements": bool(summary.get("statements")),
+        "context": bool(summary.get("context")),
         })
     return videos
 
@@ -971,8 +1064,9 @@ def claude_command():
     return [found] if found else None
 
 
-JOB_MODES = ("summary", "flow", "statements")
-PART_ONLY = {"flow": ("the flow", "Flow only"), "statements": ("the statements", "Statements only")}
+JOB_MODES = ("summary", "flow", "statements", "context")
+PART_ONLY = {"flow": ("the flow", "Flow only"), "statements": ("the statements", "Statements only"),
+             "context": ("the context", "Context only")}
 
 
 def keep_summary(folder, language, copy=False):
@@ -1740,6 +1834,9 @@ def cmd_check(args):
     flow = f", {len(summary['flow'])} flow segments" if summary.get("flow") else ", no flow"
     if summary.get("statements"):
         flow += f", {summary['statements']['sentences']} sentences in {len(summary['statements']['thoughts'])} thoughts"
+    if summary.get("context"):
+        context = summary["context"]
+        flow += f", context: {len(context['people'])} people, {len(context['tools'])} tools"
     highlights = sum(1 for idea in summary["ideas"] if idea.get("highlight"))
     print(f"OK: {len(summary['topics'])} topics, {len(summary['ideas'])} ideas ({highlights} highlighted){flow}")
     return 0

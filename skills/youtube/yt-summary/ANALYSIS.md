@@ -16,7 +16,7 @@ Commands run with the Bash tool as `python "<skill folder>/summary.py" <command>
 Run `summary.py info <id>`. It prints the paths used below and the summary language (`summary_language`).
 
 - `ERROR:` (not in the archive, no transcript): stop and report it as the result.
-- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. It keeps the old summary as `summary.<lang>.<date>.json`. Not when the task is *flow only* or *statements only* (then follow the section [Flow only](#flow-only) or [Statements only](#statements-only) instead) or says the old summary is already kept (then write the new one over `summary_json`).
+- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. It keeps the old summary as `summary.<lang>.<date>.json`. Not when the task is *flow only*, *statements only* or *context only* (then follow the section [Flow only](#flow-only), [Statements only](#statements-only) or [Context only](#context-only) instead) or says the old summary is already kept (then write the new one over `summary_json`).
 
 Read `info.json` (title, channel, date, duration, chapters), `description.txt` and the whole `transcript_md`. Read a long transcript in parts, but read all of it before writing; the summary must cover the whole video, not its beginning.
 
@@ -60,9 +60,15 @@ For every on-subject segment ask: *does the listener learn something new and sup
 
 **Silences** come from the script, not from reading: `summary.py silences <id>` lists the stretches of at least 15 s without speech (`silence <start> <end>`). A silence at the very start or the very end of the video is always its own `silence` segment with exactly those times. A silence in the middle is a `silence` segment only when nothing happens for the viewer (a break, music, waiting); when the speaker types code, works or shows something on the screen without talking, it belongs to the surrounding segment.
 
+**Context** (`context`): the facts about the video itself, from the title, the channel, `description.txt` and the transcript. Only what the video or its description says or shows; nothing from outside, no guesses. What cannot be found stays out.
+- `people`: everyone who speaks or is interviewed in the video and is named, the hosts first, then the others in the order they appear. Each with `name`, `role` (`host`: leads the talk or the show, asks the questions; `guest`: is interviewed or invited; `speaker`: gives the talk; `panelist`: one of several in a discussion), and when known `title` (the job or function, as given) and `org` (the company, project or community they work for). `[]` when nobody is named.
+- `event` (only when the video is from one): `name` (a conference, meetup, series or show, as it is called, with its year when given) and `place` (city, venue, or "online") when known.
+- `format`: `kind`, the one that fits best: `talk` (one speaker presents), `interview` (a host asks one or more guests), `panel` (a moderated discussion of several), `discussion` (a free conversation or podcast of equals), `tutorial` (teaches how to do something step by step), `demo` (mostly shows a product or a project working), `stream` (a live stream). `qa` (only when the video has a part with questions from the audience or the chat): where that part starts, an exact time as in step 3.
+- `tools`: the tools, products, services, plugins, AI models and libraries the video describes or uses, not every name dropped in passing. In the order they first matter, written as they are commonly written. Each with `name`, `kind` (`tool`: an application or a command-line tool; `plugin`: a plugin, an extension, an MCP server or a skill for another tool; `service`: an online service or platform; `model`: an AI model; `library`: a library or framework) and `note`: a few words in the summary language on what the video does with it or says about it. Use the same spelling as in the `terms` of the statements, when the summary has them. `[]` when none.
+
 **Short videos** (shorts, or anything under about 3 minutes): one overview paragraph, 1–3 topics, 1–3 ideas with 1–2 moments each, 1–5 flow segments, no `highlight` unless one idea clearly stands out. Do not inflate a short message.
 
-Wishes the user gave (shorter, a focus on one part, more ideas, what to leave out) adjust these sizes and the focus; they never override the rules above. In *flow only* they apply to the flow and the highlights, in *statements only* to the statements.
+Wishes the user gave (shorter, a focus on one part, more ideas, what to leave out) adjust these sizes and the focus; they never override the rules above. In *flow only* they apply to the flow and the highlights, in *statements only* to the statements, in *context only* to the context.
 
 ## 3. Exact times
 
@@ -108,11 +114,23 @@ Get the current time with `date -u +%Y-%m-%dT%H:%M:%SZ` and write `summary_json`
     {"start": 95, "kind": "promo", "label": "Sponsor read"},
     {"start": 150, "kind": "solid", "label": "Why the model fails"},
     {"start": 290, "kind": "dense", "label": "Benchmark numbers"}
-  ]
+  ],
+  "context": {
+    "people": [
+      {"name": "Jane Doe", "role": "host", "title": "Host", "org": "Example Podcast"},
+      {"name": "John Roe", "role": "guest", "title": "Staff Engineer", "org": "Example Corp"}
+    ],
+    "event": {"name": "Example Conf 2026", "place": "Berlin"},
+    "format": {"kind": "interview", "qa": 2710},
+    "tools": [
+      {"name": "Claude Code", "kind": "tool", "note": "writes and reviews the code in the demo"},
+      {"name": "Playwright MCP", "kind": "plugin", "note": "lets the agent test the web app"}
+    ]
+  }
 }
 ```
 
-Times are seconds (`117`) or `"m:ss"` / `"h:mm:ss"`.
+Leave out `event` when there is none and `qa` when there is no audience part. Times are seconds (`117`) or `"m:ss"` / `"h:mm:ss"`.
 
 Run `summary.py check <id>`. On `PROBLEM:` lines fix the file and check again until it prints `OK`.
 
@@ -172,4 +190,10 @@ When the task says *statements only*, the video already has a summary and gets o
 
 Run `check` as in step 4 and end with one line:
 - `OK <id>: <n> sentences, <m> thoughts`
+- `ERROR <id>: <reason>`
+
+## Context only
+
+When the task says *context only*, the video already has a summary and gets only its context. Run `info` (do **not** run `keep`), read `info.json`, `description.txt`, the whole transcript and `summary_json`, and write into that file `context` by the rules above (replacing any earlier one), leaving every other field as it is. Run `check` as in step 4 and end with one line:
+- `OK <id>: <p> people, <t> tools`
 - `ERROR <id>: <reason>`
