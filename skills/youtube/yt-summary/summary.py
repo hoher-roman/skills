@@ -15,6 +15,8 @@ Usage:
       start time (seconds) of each phrase in the transcript, by word timing from the .json3
   python summary.py silences <video_id>
       stretches of the video without speech (no words, or only marks such as [Music]), for the flow
+  python summary.py sentences <video_id>
+      the transcript split into numbered sentences with their start, saved once as sentences.<lang>.json
   python summary.py keep <video_id>
       moves an existing summary.<lang>.json aside as summary.<lang>.<date>.json, before a new analysis
   python summary.py check <video_id>
@@ -221,6 +223,56 @@ LABELS = {
     "regen_summary_note": "Overview, topics, main ideas and flow.",
     "regen_flow": "Only the flow",
     "regen_flow_note": "The overview, topics and ideas stay; the important ideas are chosen again.",
+    "statements": "Statements",
+    "statements_missing": "This summary has no list of statements yet: every sentence of the video, grouped into thoughts.",
+    "statements_create": "Create statements",
+    "statements_create_list": "Add missing statements ({n})",
+    "statements_confirm": "Add the list of statements to the summaries that have none? Videos: {n}, total length {time}, model {model}. It runs in the background on your Claude account; the summaries themselves stay as they are.",
+    "statements_job_queued": "The statements are waiting in the queue…",
+    "statements_job_running": "Creating the statements… This takes a few minutes.",
+    "statements_job_error": "The statements could not be created: {error}",
+    "st_filler": "Filler",
+    "st_type": "Kind of sentence",
+    "st_support": "Support",
+    "st_value": "Value",
+    "st_relation": "Relation",
+    "st_type_claim": "Claim",
+    "st_type_fact": "Fact",
+    "st_type_definition": "Definition",
+    "st_type_explanation": "Explanation",
+    "st_type_example": "Example",
+    "st_type_advice": "Advice",
+    "st_type_warning": "Warning",
+    "st_type_opinion": "Opinion",
+    "st_type_prediction": "Prediction",
+    "st_type_question": "Question",
+    "st_support_none": "Unsupported",
+    "st_support_reasoning": "Reasoning",
+    "st_support_experience": "Experience",
+    "st_support_example": "Example",
+    "st_support_data": "Data",
+    "st_support_demo": "Demo",
+    "st_support_source": "Source",
+    "st_value_known": "Known",
+    "st_value_useful": "Useful",
+    "st_value_insight": "Insight",
+    "st_rel_repeats": "Repeats",
+    "st_rel_refines": "Refines",
+    "st_rel_contradicts": "Contradicts",
+    "st_rel_answers": "Answers",
+    "st_hide_filler": "Hide filler",
+    "st_filters": "Filters",
+    "st_ctrl_hint": "Ctrl+click on a sentence plays the video from it; Shift+click marks it.",
+    "st_marked": "Marked",
+    "st_marks_error": "The marks could not be saved: {error}",
+    "st_search": "Search the sentences and terms",
+    "st_clear": "Clear filters",
+    "st_count": "{shown} of {total} sentences",
+    "st_thought": "Thought",
+    "st_idea": "Main idea {n}",
+    "st_nothing": "No sentence matches the filters.",
+    "regen_statements": "Only the statements",
+    "regen_statements_note": "Every sentence with its kind, grouped into thoughts; the rest of the summary stays.",
     "regen_model": "Model for this run",
     "regen_model_default": "As in the settings ({model})",
     "regen_note": "Note for Claude",
@@ -511,6 +563,86 @@ def silences(json3_path, duration, minimum=SILENCE_SECONDS):
     return found
 
 
+# ---------- sentences ----------
+
+SENTENCE_END = re.compile(r"[.?!…][\"'”’)\]]*$")
+ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "prof.", "st.", "jr.", "sr.", "vs.", "etc.", "e.g.", "i.e.", "inc.",
+                 "no.", "approx.", "cf.", "fig."}
+SENTENCE_PAUSE = 1.0  # without punctuation: a pause this long (seconds) ends a sentence
+SENTENCE_WORDS = 25   # without punctuation: at most this many words in one
+
+
+def spoken_words(json3_path):
+    """[(seconds, word)] of the transcript as written; None for a change of speaker (">>")."""
+    data = read_json(json3_path, {}) or {}
+    words = []
+    for event in data.get("events", []):
+        base = event.get("tStartMs", 0)
+        for seg in event.get("segs") or []:
+            at = (base + seg.get("tOffsetMs", 0)) / 1000
+            for word in seg.get("utf8", "").replace(">>", " >> ").split():
+                words.append((at, None) if word == ">>" else (at, word))
+    return words
+
+
+def split_sentences(json3_path):
+    """The transcript as sentences [{"start": seconds, "text"}]. With punctuation a sentence ends at . ? ! before
+    a capital letter, a digit or a pause (not after an abbreviation); without it at a pause or after
+    SENTENCE_WORDS words. A change of speaker always ends one."""
+    words = spoken_words(json3_path)
+    said = [w for _, w in words if w]
+    punctuated = sum(1 for w in said if SENTENCE_END.search(w)) * 40 >= max(1, len(said))
+    sentences, current = [], []
+
+    def close():
+        if current:
+            sentences.append({"start": round(current[0][0], 1), "text": " ".join(w for _, w in current)})
+            current.clear()
+
+    for i, (at, word) in enumerate(words):
+        if word is None:
+            close()
+            continue
+        current.append((at, word))
+        following = next(((t, w) for t, w in words[i + 1:] if w), None)
+        if following is None:
+            continue
+        pause = following[0] - at
+        if punctuated:
+            ends = (SENTENCE_END.search(word) and word.lower() not in ABBREVIATIONS
+                    and (following[1][0].isupper() or following[1][0].isdigit() or following[1][0] in "\"“'‘[("
+                         or pause >= 1.5))
+        else:
+            ends = (pause >= SENTENCE_PAUSE and len(current) >= 4) or len(current) >= SENTENCE_WORDS
+        if ends:
+            close()
+    close()
+    return sentences
+
+
+def sentences_file(folder):
+    raw, _ = transcript_file(folder)
+    return raw.with_name(raw.name.replace("transcript.", "sentences.").replace(".json3", ".json"))
+
+
+def load_sentences(folder, create=False):
+    """The numbered sentences of the video (saved once, so their numbers stay), or None."""
+    try:
+        path = sentences_file(folder)
+    except Fail:
+        return None
+    data = read_json(path, None) if path.exists() else None
+    if isinstance(data, dict) and isinstance(data.get("sentences"), list):
+        return data["sentences"]
+    if not create:
+        return None
+    raw, _ = transcript_file(folder)
+    found = split_sentences(raw)
+    path.write_text(json.dumps({"source": raw.name, "sentences": found}, ensure_ascii=False, indent=1) + "\n",
+                    encoding="utf-8")
+    return found
+
+
 # ---------- check ----------
 
 # The kinds of talk in a summary's flow and their level: below 0 nothing on the video's subject, 0 framing,
@@ -549,7 +681,75 @@ def flow_problems(flow, duration):
     return problems
 
 
-def summary_problems(summary, duration):
+# The statements of a summary: a kind for each sentence (empty: filler), thoughts over runs of content sentences.
+SENTENCE_TYPES = ("claim", "fact", "definition", "explanation", "example", "advice", "warning", "opinion",
+                  "prediction", "question")
+THOUGHT_SUPPORT = ("none", "reasoning", "experience", "example", "data", "demo", "source")
+THOUGHT_VALUE = ("known", "useful", "insight")
+THOUGHT_RELATIONS = ("repeats", "refines", "contradicts", "answers")
+
+
+def statements_problems(statements, sentence_count, idea_count):
+    """What is wrong with the statements of a summary, against the number of sentences of the video."""
+    if not isinstance(statements, dict):
+        return ["statements is not an object"]
+    if sentence_count is None:
+        return ["statements: the video has no sentences file; run summary.py sentences first"]
+    problems = []
+    if statements.get("sentences") != sentence_count:
+        problems.append(f"statements.sentences is {statements.get('sentences')!r}, the video has {sentence_count}")
+    types = statements.get("types")
+    if not isinstance(types, list) or len(types) != sentence_count:
+        return problems + [f"statements.types must list one kind for each of the {sentence_count} sentences "
+                           f"(has {len(types) if isinstance(types, list) else 'none'})"]
+    for number, kind in enumerate(types, 1):
+        if kind not in SENTENCE_TYPES and kind != "":
+            problems.append(f"sentence {number}: kind {kind!r} is not one of {', '.join(SENTENCE_TYPES)} or \"\"")
+    thoughts = statements.get("thoughts")
+    if not isinstance(thoughts, list) or not thoughts:
+        return problems + ["statements.thoughts is missing or empty"]
+    covered, last = set(), 0
+    for number, thought in enumerate(thoughts, 1):
+        where = f"thought #{number}"
+        if not isinstance(thought, dict):
+            problems.append(f"{where}: not an object")
+            continue
+        first, end = thought.get("from"), thought.get("to")
+        if not (isinstance(first, int) and isinstance(end, int) and 1 <= first <= end <= sentence_count):
+            problems.append(f"{where}: from and to must be sentence numbers 1–{sentence_count}, from ≤ to")
+        else:
+            if first <= last:
+                problems.append(f"{where}: starts at sentence {first}, inside or before the previous thought (to {last})")
+            if not types[first - 1] or not types[end - 1]:
+                problems.append(f"{where}: starts or ends with a filler sentence (no kind); "
+                                "filler may only be in its middle")
+            covered.update(range(first, end + 1))
+            last = max(last, end)
+        if not str(thought.get("text") or "").strip():
+            problems.append(f"{where}: missing text")
+        if thought.get("support") not in THOUGHT_SUPPORT:
+            problems.append(f"{where}: support {thought.get('support')!r} is not one of {', '.join(THOUGHT_SUPPORT)}")
+        if thought.get("value") not in THOUGHT_VALUE:
+            problems.append(f"{where}: value {thought.get('value')!r} is not one of {', '.join(THOUGHT_VALUE)}")
+        relation = thought.get("relation")
+        if relation is not None and not (isinstance(relation, dict) and relation.get("kind") in THOUGHT_RELATIONS
+                                         and isinstance(relation.get("to"), int) and 1 <= relation["to"] < number):
+            problems.append(f"{where}: relation must be {{\"to\": an earlier thought, \"kind\": "
+                            f"{' | '.join(THOUGHT_RELATIONS)}}}")
+        idea = thought.get("idea")
+        if idea is not None and not (isinstance(idea, int) and 1 <= idea <= idea_count):
+            problems.append(f"{where}: idea {idea!r} is not a main idea (1–{idea_count})")
+        terms = thought.get("terms", [])
+        if not isinstance(terms, list) or not all(isinstance(t, str) and t.strip() for t in terms):
+            problems.append(f"{where}: terms must be a list of words")
+    loose = [n for n in range(1, sentence_count + 1) if types[n - 1] and n not in covered]
+    if loose:
+        problems.append(f"sentences {', '.join(map(str, loose[:8]))}{'…' if len(loose) > 8 else ''} have a kind "
+                        "but are in no thought")
+    return problems
+
+
+def summary_problems(summary, duration, sentence_count=None):
     """What in summary.json the viewer could not show, as readable sentences."""
     problems = []
 
@@ -583,6 +783,8 @@ def summary_problems(summary, duration):
     if "flow" in summary:  # summaries made before the flow existed have none
         problems += flow_problems(summary["flow"], duration)
     ideas = summary.get("ideas") if isinstance(summary.get("ideas"), list) else []
+    if "statements" in summary:  # added on request
+        problems += statements_problems(summary["statements"], sentence_count, len(ideas))
     highlighted = [i for i, idea in enumerate(ideas, 1) if isinstance(idea, dict) and "highlight" in idea]
     if len(highlighted) > MAX_HIGHLIGHTS:
         problems.append(f"{len(highlighted)} ideas have a highlight; at most {MAX_HIGHLIGHTS} may have one")
@@ -601,11 +803,14 @@ def list_videos(root, language):
             rows = list(csv.DictReader(f))
     except OSError:
         return []
-    def has_flow(path):
+    def parts(path):
         summary = read_json(path, None) if path.exists() else None
-        return bool(isinstance(summary, dict) and summary.get("flow"))
+        return summary if isinstance(summary, dict) else {}
 
-    return [{
+    videos = []
+    for row in rows:
+        summary = parts(root / row["path"] / f"summary.{language}.json")
+        videos.append({
         "id": row["video_id"],
         "channel_id": row["channel_id"],
         "channel": row["channel"],
@@ -614,9 +819,11 @@ def list_videos(root, language):
         "duration": int(row["duration"] or 0),
         "type": row["type"],
         "transcript": row["transcript"],
-        "summary": (root / row["path"] / f"summary.{language}.json").exists(),
-        "flow": has_flow(root / row["path"] / f"summary.{language}.json"),
-    } for row in rows]
+        "summary": bool(summary),
+        "flow": bool(summary.get("flow")),
+        "statements": bool(summary.get("statements")),
+        })
+    return videos
 
 
 def list_playlists(root):
@@ -708,6 +915,20 @@ def summary_versions(folder, language):
     return sorted(versions, key=lambda v: (v["created_at"], v["version"][:10], number(v)), reverse=True)
 
 
+def save_marks(root, video_id, numbers):
+    """The sentences the listener marked in the statements tab, as marks.json in the video's folder."""
+    folder = video_folder(root, video_id)
+    sentences = load_sentences(folder)
+    if sentences is None:
+        raise Fail("the video has no sentences")
+    if not isinstance(numbers, list) or not all(isinstance(n, int) and 1 <= n <= len(sentences) for n in numbers):
+        raise ValueError(f"sentences must be a list of sentence numbers 1–{len(sentences)}")
+    marks = {"sentences": sorted(set(numbers)),
+             "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    (folder / "marks.json").write_text(json.dumps(marks, indent=1) + "\n", encoding="utf-8")
+    return marks
+
+
 def video_payload(root, video_id, language, version=None):
     """The video for the viewer, with its current summary, or with version (a date stamp) that kept version."""
     folder = video_folder(root, video_id)
@@ -719,12 +940,15 @@ def video_payload(root, video_id, language, version=None):
         description = (folder / "description.txt").read_text(encoding="utf-8")
     except OSError:
         description = info.get("description") or ""
+    summary = read_json(folder / (f"summary.{language}.{version}.json" if version else f"summary.{language}.json"))
     return {
         **{key: info.get(key) for key in (
             "id", "title", "channel", "channel_id", "upload_date", "duration", "view_count", "chapters")},
         "transcript": (info.get("fetch") or {}).get("transcript"),
         "description": description,
-        "summary": read_json(folder / (f"summary.{language}.{version}.json" if version else f"summary.{language}.json")),
+        "summary": summary,
+        "sentences": load_sentences(folder) if isinstance(summary, dict) and summary.get("statements") else None,
+        "marks": (read_json(folder / "marks.json", {}) or {}).get("sentences") or [],
         "version": version,
         "versions": summary_versions(folder, language),
     }
@@ -747,7 +971,8 @@ def claude_command():
     return [found] if found else None
 
 
-JOB_MODES = ("summary", "flow")
+JOB_MODES = ("summary", "flow", "statements")
+PART_ONLY = {"flow": ("the flow", "Flow only"), "statements": ("the statements", "Statements only")}
 
 
 def keep_summary(folder, language, copy=False):
@@ -788,9 +1013,11 @@ def run_summary(video_id, mode="summary", options=None):
     kept = None
     if options.get("regenerate"):
         kept = keep_summary(folder, config["language"], copy=True)
-    if mode == "flow":
-        prompt = (f"Add the flow to the existing summary of the YouTube video `{video_id}` from the local archive "
-                  f"(flow only). Read `{ANALYSIS.as_posix()}` and follow its section Flow only exactly. Run the script "
+    if mode in PART_ONLY:
+        what, section = PART_ONLY[mode]
+        prompt = (f"Add {what} to the existing summary of the YouTube video `{video_id}` from the local archive "
+                  f"({section.lower()}). Read `{ANALYSIS.as_posix()}` and follow its section {section} exactly. "
+                  "Run the script "
                   f"exactly as `python \"{script}\" <command> ...`. {wishes} "
                   "Reply with only the result line of that section.")
     else:
@@ -827,9 +1054,11 @@ def run_summary(video_id, mode="summary", options=None):
     if summary.exists() and summary.stat().st_mtime >= started:
         duration = (read_json(folder / "info.json", {}) or {}).get("duration") or 0
         written = read_json(summary, {}) or {}
-        problems = summary_problems(written, duration)
-        if not problems and mode == "flow" and not written.get("flow"):
-            problems = ["the flow was not written"]
+        sentences = load_sentences(folder)
+        problems = summary_problems(written, duration, len(sentences) if sentences is not None else None)
+        if not problems and mode in PART_ONLY and not written.get(mode):
+            problems = [f"{PART_ONLY[mode][0]} were not written" if mode == "statements"
+                        else f"{PART_ONLY[mode][0]} was not written"]
         if problems:
             return f"the summary has problems: {problems[0]} (log: {log_path})"
         if options.get("regenerate"):  # the note is offered again the next time
@@ -870,10 +1099,11 @@ class Jobs:
                 folder = video_folder(root, video_id)
                 transcript_file(folder)
                 summary = folder / f"summary.{language}.json"
-                if mode == "flow":
+                if mode in PART_ONLY:
                     existing = read_json(summary, None) if summary.exists() else None
                     reason = ("it has no summary" if not isinstance(existing, dict)
-                              else "it has a flow" if existing.get("flow") and not options.get("regenerate") else None)
+                              else f"it has {PART_ONLY[mode][0]}" if existing.get(mode) and not options.get("regenerate")
+                              else None)
                 else:
                     reason = "it has a summary" if summary.exists() and not options.get("regenerate") else None
             except Fail as e:
@@ -1133,7 +1363,9 @@ def make_handler(port):
                     or not hmac.compare_digest(self.headers.get("X-Token", ""), TOKEN)):
                 return self.send_error(403)
             path = urllib.parse.urlsplit(self.path).path
-            if path not in ("/api/summarize", "/api/settings", "/api/add/search", "/api/add/survey", "/api/add/download"):
+            marks = re.fullmatch(r"/api/marks/([\w-]{11})", path)
+            if not marks and path not in ("/api/summarize", "/api/settings", "/api/add/search", "/api/add/survey",
+                                          "/api/add/download"):
                 return self.send_error(404)
             try:
                 body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -1143,6 +1375,11 @@ def make_handler(port):
                 return self.send_error(400)
             if path == "/api/settings":
                 return self.save_settings(body)
+            if marks:
+                try:
+                    return self.send_json(save_marks(archive_root(load_config()), marks[1], body.get("sentences")))
+                except (Fail, ValueError) as e:
+                    return self.send_json({"error": str(e)}, 400)
             if path.startswith("/api/add/"):
                 return self.send_json(*add_request(path, body))
             try:
@@ -1468,6 +1705,16 @@ def cmd_silences(args):
     return 0
 
 
+def cmd_sentences(args):
+    config = load_config()
+    folder = video_folder(archive_root(config), args.video_id)
+    found = load_sentences(folder, create=True)
+    for number, sentence in enumerate(found, 1):
+        print(f"{number} [{hms(sentence['start'])}] {sentence['text']}")
+    print(f"Sentences: {len(found)} (saved in {sentences_file(folder)})")
+    return 0
+
+
 def cmd_keep(args):
     """Move the current summary aside under its creation date, so a new analysis never overwrites it."""
     config = load_config()
@@ -1484,12 +1731,15 @@ def cmd_check(args):
     if not isinstance(summary, dict):
         raise Fail(f"{source} does not exist or is not valid JSON")
     duration = (read_json(folder / "info.json", {}) or {}).get("duration") or 0
-    problems = summary_problems(summary, duration)
+    sentences = load_sentences(folder)
+    problems = summary_problems(summary, duration, len(sentences) if sentences is not None else None)
     for problem in problems:
         print(f"PROBLEM: {problem}")
     if problems:
         return 1
     flow = f", {len(summary['flow'])} flow segments" if summary.get("flow") else ", no flow"
+    if summary.get("statements"):
+        flow += f", {summary['statements']['sentences']} sentences in {len(summary['statements']['thoughts'])} thoughts"
     highlights = sum(1 for idea in summary["ideas"] if idea.get("highlight"))
     print(f"OK: {len(summary['topics'])} topics, {len(summary['ideas'])} ideas ({highlights} highlighted){flow}")
     return 0
@@ -1569,7 +1819,7 @@ def main():
     status_parser = commands.add_parser("status")
     status_parser.add_argument("plan")
     status_parser.add_argument("--sample", action="store_true")
-    for name in ("info", "keep", "check", "silences"):
+    for name in ("info", "keep", "check", "silences", "sentences"):
         commands.add_parser(name).add_argument("video_id")
     locate_parser = commands.add_parser("locate")
     locate_parser.add_argument("video_id")
@@ -1582,11 +1832,11 @@ def main():
 
     # Video IDs may start with "-" (e.g. -LJhQyfiFHU); argparse would take such an ID for an option.
     argv = sys.argv[1:]
-    if len(argv) > 1 and argv[0] in ("info", "keep", "check", "locate", "start", "silences") \
+    if len(argv) > 1 and argv[0] in ("info", "keep", "check", "locate", "start", "silences", "sentences") \
             and argv[1].startswith("-") and argv[1] not in ("-h", "--help", "--open", "--"):
         argv.insert(1, "--")
     args = parser.parse_args(argv)
-    handler = {"config": cmd_config, "find": cmd_find, "plan": cmd_plan, "status": cmd_status, "info": cmd_info, "locate": cmd_locate, "silences": cmd_silences, "keep": cmd_keep, "check": cmd_check,
+    handler = {"config": cmd_config, "find": cmd_find, "plan": cmd_plan, "status": cmd_status, "info": cmd_info, "locate": cmd_locate, "silences": cmd_silences, "sentences": cmd_sentences, "keep": cmd_keep, "check": cmd_check,
                "start": cmd_start, "stop": cmd_stop, "serve": cmd_serve}[args.command]
     try:
         return handler(args)

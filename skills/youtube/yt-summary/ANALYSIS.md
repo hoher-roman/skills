@@ -16,7 +16,7 @@ Commands run with the Bash tool as `python "<skill folder>/summary.py" <command>
 Run `summary.py info <id>`. It prints the paths used below and the summary language (`summary_language`).
 
 - `ERROR:` (not in the archive, no transcript): stop and report it as the result.
-- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. It keeps the old summary as `summary.<lang>.<date>.json`. Not when the task is *flow only* (then follow the last section, [Flow only](#flow-only), instead) or says the old summary is already kept (then write the new one over `summary_json`).
+- `summary_exists` is `true`: the decision to make a new summary is already made, so run `summary.py keep <id>`. It keeps the old summary as `summary.<lang>.<date>.json`. Not when the task is *flow only* or *statements only* (then follow the section [Flow only](#flow-only) or [Statements only](#statements-only) instead) or says the old summary is already kept (then write the new one over `summary_json`).
 
 Read `info.json` (title, channel, date, duration, chapters), `description.txt` and the whole `transcript_md`. Read a long transcript in parts, but read all of it before writing; the summary must cover the whole video, not its beginning.
 
@@ -62,7 +62,7 @@ For every on-subject segment ask: *does the listener learn something new and sup
 
 **Short videos** (shorts, or anything under about 3 minutes): one overview paragraph, 1–3 topics, 1–3 ideas with 1–2 moments each, 1–5 flow segments, no `highlight` unless one idea clearly stands out. Do not inflate a short message.
 
-Wishes the user gave (shorter, a focus on one part, more ideas, what to leave out) adjust these sizes and the focus; they never override the rules above. In *flow only* they apply to the flow and the highlights.
+Wishes the user gave (shorter, a focus on one part, more ideas, what to leave out) adjust these sizes and the focus; they never override the rules above. In *flow only* they apply to the flow and the highlights, in *statements only* to the statements.
 
 ## 3. Exact times
 
@@ -126,4 +126,50 @@ End with one line:
 
 When the task says *flow only*, the video already has a summary and gets only its flow. Run `info` (do **not** run `keep`) and `silences`, read the transcript and `summary_json`, and write into that file `flow` by the rules above and `highlight` on its 1–3 most valuable ideas (replacing any earlier flow and highlights), leaving every other field as it is. Run `check` as in step 4 and end with one line:
 - `OK <id>: <k> flow segments`
+- `ERROR <id>: <reason>`
+
+## Statements only
+
+When the task says *statements only*, the video already has a summary and gets only its list of statements: every sentence of the video with its kind, grouped into thoughts. Do **not** run `keep`.
+
+1. Run `info`, then `summary.py sentences <id>`. It prints the transcript as numbered sentences (`n [m:ss] text`); the numbers are fixed, use them as they are. Read all of them and `summary_json` (its `ideas`).
+2. **Kind of each sentence** (`types`): one entry per sentence, in order, so exactly as many as there are sentences.
+   - `""` (filler): nothing on the video's subject on its own: greetings, small talk, ads and self-promotion, framing ("so let's move on", "great question"), digressions off the subject, fragments and fillers ("Right.", "You know what I mean?").
+   - For a sentence that says something on the subject, the one kind that fits best:
+
+| kind | the sentence |
+|---|---|
+| `claim` | states how things are ("Opus 5.5 doesn't need steering") |
+| `fact` | gives a concrete number, measurement or result ("only 14 % caught it") |
+| `definition` | says what a term means |
+| `explanation` | says why or how something works |
+| `example` | gives an example, a case or a story |
+| `advice` | recommends what to do |
+| `warning` | warns what not to do or what goes wrong |
+| `opinion` | judges or prefers ("I really like it") |
+| `prediction` | says what will happen |
+| `question` | asks a question the video goes on to answer or leaves open (not a rhetorical filler) |
+
+3. **Thoughts** (`thoughts`): runs of consecutive sentences that say one thing; a new thought starts where the point changes. Usually 1–6 sentences. Every sentence with a kind belongs to exactly one thought; a thought starts and ends with such a sentence, and a short filler sentence may stay in its middle. In order, without overlaps. Each thought:
+   - `from`, `to`: its first and last sentence number
+   - `text`: its point in one sentence in the summary language
+   - `support`: what backs it in the video: `none` (nothing, a bare statement), `reasoning` (an argument), `experience` (the speaker's own experience), `example`, `data` (numbers, measurements), `demo` (shown in the video), `source` (a study, documentation or another author)
+   - `value` for the listener: `known` (common knowledge for someone interested in the subject), `useful` (worth knowing), `insight` (new, surprising or far-reaching). Judge as in the flow, by what it gives, not how it is said.
+   - `relation` (only when there is one): `{"to": <number of an earlier thought, 1 = the first>, "kind": ...}` with `repeats` (says the same again), `refines` (adds detail or a condition to it), `contradicts`, `answers` (answers its question)
+   - `idea` (only when it states or supports one): the number of the main idea in `ideas` (1 = the first)
+   - `terms`: the terms, tools, products and people it names, as they are commonly written; `[]` when none
+4. Add to `summary_json` with the Edit tool, leaving every other field as it is:
+
+```json
+"statements": {
+  "sentences": 206,
+  "types": ["", "", "claim", "fact", "..."],
+  "thoughts": [
+    {"from": 3, "to": 5, "text": "…", "support": "data", "value": "useful", "relation": {"to": 1, "kind": "refines"}, "idea": 2, "terms": ["auto mode"]}
+  ]
+}
+```
+
+Run `check` as in step 4 and end with one line:
+- `OK <id>: <n> sentences, <m> thoughts`
 - `ERROR <id>: <reason>`

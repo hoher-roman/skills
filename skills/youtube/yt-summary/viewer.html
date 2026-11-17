@@ -277,6 +277,66 @@
   .idea { padding: 14px 0; border-top: 1px solid var(--border); border-radius: 8px; transition: background .3s; }
   .idea:first-of-type { border-top: 0; padding-top: 0; }
   .idea.active { background: var(--active); box-shadow: 0 0 0 8px var(--active); }
+  /* Statements tab: every sentence of the video, grouped into thoughts, with filters over their attributes. */
+  .st-tools { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; }
+  .st-tools input[type=search] { flex: 1 1 220px; font: inherit; font-size: .9rem; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .st-tools label { display: flex; gap: 6px; align-items: center; font-size: .88rem; }
+  .st-tools .st-count { color: var(--muted); font-size: .85rem; margin-left: auto; }
+  .st-filters { display: grid; grid-template-columns: max-content 1fr; gap: 6px 10px; align-items: baseline; margin: 0 0 10px;
+    font-size: .8rem; }
+  .st-filters > span { color: var(--muted); font-weight: 600; }
+  .st-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .st-chip { font: inherit; font-size: .78rem; padding: 2px 9px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; }
+  .st-chip .cnt { color: var(--muted); margin-left: 4px; }
+  .st-tools button.st-toggle { font: inherit; font-size: .85rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; }
+  .st-tools button.st-toggle[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  .st-filters[hidden], #st-active:empty { display: none; }
+  #st-active { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+  .st-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .st-chip[aria-pressed="true"] .cnt { color: rgba(255, 255, 255, .8); }
+  .st-chip.x { background: var(--accent-soft); border-color: var(--accent); }
+  table.st { width: 100%; border-collapse: collapse; font-size: .9rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; }
+  table.st td { padding: 5px 8px; vertical-align: top; border-top: 1px solid var(--border); }
+  table.st td.time { width: 1%; white-space: nowrap; border-left: 4px solid var(--k, transparent); }
+  table.st td.num { width: 1%; white-space: nowrap; }
+  table.st td.kind { width: 1%; white-space: nowrap; color: var(--muted); font-size: .8rem; }
+  table.st tr.head td { background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); border-top: 2px solid var(--border);
+    padding: 8px 10px; }
+  table.st tr.head .text { font-weight: 600; }
+  table.st tr.head .tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; font-size: .78rem; color: var(--muted); }
+  table.st tr.head .tag { padding: 0 7px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+  table.st tr.head .tag.insight { border-color: var(--star); background: var(--star-soft); color: var(--text); }
+  table.st tr.head .tag.none { border-style: dashed; }
+  table.st button.link { font: inherit; padding: 0; border: 0; background: none; color: var(--accent); cursor: pointer; }
+  table.st tr.filler td { color: var(--muted); }
+  table.st tr.filler td.text { font-style: italic; }
+  table.st tr.row.active td { background: var(--active); }
+  /* With Ctrl (Cmd on a Mac) held, a click anywhere on a sentence plays the video from it; with Shift it marks it. */
+  .st-ctrl table.st tr.row, .st-shift table.st tr.row { cursor: pointer; }
+  .st-ctrl table.st tr.row:hover td { background: var(--accent-soft); }
+  .st-shift table.st tr.row:hover td { background: color-mix(in srgb, var(--star) 25%, var(--surface)); }
+  table.st tr.row.marked td { background: var(--star-soft); }
+  table.st tr.row.marked td.text { color: var(--text); }
+  table.st .mark { color: var(--star-strong); margin-left: 3px; }
+  table.st tr.head .tag.marks { border-color: var(--star); background: var(--star-soft); color: var(--text); }
+  .st-tools .st-chip { font-size: .85rem; padding: 4px 10px; }
+  .st-tools .st-error { color: var(--accent); font-size: .85rem; }
+  table.st tr.flash td { animation: st-flash 1.2s ease-out; }
+  @keyframes st-flash { from { background: var(--star-soft); } }
+  .st-empty { color: var(--muted); padding: 16px; text-align: center; }
+  @media (max-width: 700px) {
+    table.st, table.st tbody, table.st tr { display: block; }
+    table.st tr.row { display: grid; grid-template-columns: auto auto 1fr; gap: 0 6px; border-top: 1px solid var(--border);
+      border-left: 4px solid var(--k, transparent); padding: 4px 6px; }
+    table.st tr.row td { border: 0; padding: 0; width: auto; }
+    table.st tr.row td.text { grid-column: 1 / -1; }
+    table.st tr.row td.time { border-left: 0; }
+    table.st tr.head td { display: block; }
+  }
   .n { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 50%;
     background: var(--text); color: var(--bg); font-size: .78rem; }
   ul.moments { margin: 0; padding-left: 0; list-style: none; }
@@ -809,7 +869,7 @@
         </div>${s ? `<section class="flow-panel" id="flow-panel" aria-label="${esc(label("flow"))}"></section>` : ""}
       </aside>` : "";
     let tab = "overview";
-    try { if (localStorage.getItem("yt-summary-tab") === "ideas") tab = "ideas"; } catch (e) {}
+    try { const saved = localStorage.getItem("yt-summary-tab"); if (saved === "ideas" || saved === "statements") tab = saved; } catch (e) {}
 
     const ideasHtml = s ? `
       <section class="ideas">
@@ -848,12 +908,15 @@
       <div class="tabs" role="tablist">
         <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" data-tab="overview">${esc(label("overview"))}</button>
         <button type="button" role="tab" id="tab-ideas" aria-controls="panel-ideas" data-tab="ideas">${esc(label("ideas"))} <span class="count">(${s.ideas.length})</span></button>
+        <button type="button" role="tab" id="tab-statements" aria-controls="panel-statements" data-tab="statements">${esc(label("statements"))}${
+          v.sentences && s.statements ? ` <span class="count">(${s.statements.thoughts.length})</span>` : ""}</button>
       </div>
       <div role="tabpanel" class="scroller" id="panel-overview" aria-labelledby="tab-overview">
         <section>${paragraphs(s.overview)}</section>
         ${descriptionHtml}${noteHtml}
       </div>
-      <div role="tabpanel" class="scroller" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}${noteHtml}</div>`
+      <div role="tabpanel" class="scroller" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}${noteHtml}</div>
+      <div role="tabpanel" class="scroller" id="panel-statements" aria-labelledby="tab-statements"></div>`
       : `<div class="scroller"><section class="notice"><p>${esc(label("no_summary"))}</p>
               ${CONFIG.summarize && v.transcript ? `<div id="job-box"></div>` : ""}
               <p class="meta">${esc(label("no_summary_command"))}</p>
@@ -862,8 +925,9 @@
       ${descriptionHtml}</div>`}
       </div>${tocHtml}</div>`;
     tabScroll = {};
-    if (s) showTab(tab);
     setFlow(s && s.flow, v.duration, s && s.ideas);
+    setStatements(v.sentences, s && s.statements, v.marks);
+    if (s) showTab(tab);
     startPlayer(id);
     showJobBox();
     showRegen();
@@ -883,6 +947,7 @@
       document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
     });
     try { localStorage.setItem("yt-summary-tab", name); } catch (e) {}
+    if (name === "statements") renderStatements();
     if (before !== name) setScroll(tabScroll[name] ?? 0);
   }
   document.addEventListener("click", e => {
@@ -892,7 +957,8 @@
   document.addEventListener("keydown", e => {
     const button = e.target.closest(".tabs [role=tab]");
     if (!button || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
-    const other = button.parentElement.querySelector(`[role=tab]:not([data-tab="${button.dataset.tab}"])`);
+    const all = [...button.parentElement.querySelectorAll("[role=tab]")];
+    const other = all[(all.indexOf(button) + (e.key === "ArrowRight" ? 1 : all.length - 1)) % all.length];
     showTab(other.dataset.tab);
     other.focus();
   });
@@ -902,14 +968,16 @@
   const isActive = id => jobs[id] && (jobs[id].state === "queued" || jobs[id].state === "running");
 
   // Buttons of a channel or playlist page: missing summaries, and flows missing in existing summaries.
-  const listButtons = list => summarizeListButton(list) + flowListButton(list);
-  function flowListButton(list) {
-    const missing = list.filter(v => v.summary && !v.flow && !isActive(v.id));
+  const listButtons = list => summarizeListButton(list) + partListButton(list, "flow") + partListButton(list, "statements");
+  function partListButton(list, part) {
+    const missing = list.filter(v => v.summary && !v[part] && !isActive(v.id));
     if (!CONFIG.summarize || !missing.length) return "";
     const time = hms(missing.reduce((total, v) => total + v.duration, 0));
-    return ` <button type="button" class="action secondary" data-mode="flow" data-summarize="${esc(missing.map(v => v.id).join(" "))}"
-      data-confirm="${esc(label("flow_confirm", {n: missing.length, time, model: CONFIG.model}))}">${esc(label("flow_create_list", {n: missing.length}))}</button>`;
+    return ` <button type="button" class="action secondary" data-mode="${part}" data-summarize="${esc(missing.map(v => v.id).join(" "))}"
+      data-confirm="${esc(label(`${part}_confirm`, {n: missing.length, time, model: CONFIG.model}))}">${esc(label(`${part}_create_list`, {n: missing.length}))}</button>`;
   }
+  // The label of a job's state: job_running for a summary, flow_job_running or statements_job_running for one part.
+  const jobLabel = (job, state) => `${job.mode && job.mode !== "summary" ? `${job.mode}_` : ""}job_${state}`;
 
   // Button for the videos of a channel or playlist that have a transcript but no summary yet.
   function summarizeListButton(list) {
@@ -923,7 +991,7 @@
   function showJobBox() {
     const box = document.getElementById("job-box");
     if (!box) return;
-    const job = jobs[videoId] && jobs[videoId].mode !== "flow" ? jobs[videoId] : null;
+    const job = jobs[videoId] && (jobs[videoId].mode || "summary") === "summary" ? jobs[videoId] : null;
     if (job && job.state === "queued") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_queued"))}</p>`;
     else if (job && job.state === "running") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("job_running"))}</p>`;
     else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label("job_error", {error: job.error}))}</p>` : "")
@@ -948,7 +1016,8 @@
         await showVideo(videoId);  // the new summary appears in place
       } else if (pageKind === "video") {
         showJobBox();
-        showFlowJob();
+        showPartJob("flow");
+        showPartJob("statements");
         showRegen();
       } else if (document.getElementById("list")) {
         if (finished.length) videos = await getJson("/api/videos");
@@ -1015,16 +1084,14 @@
     const box = document.getElementById("regen");
     if (!box) return;
     const job = jobs[videoId];
-    const flowJob = job && job.mode === "flow";
     if (job && (job.state === "queued" || job.state === "running")) {
-      box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label(
-        job.state === "queued" ? (flowJob ? "flow_job_queued" : "job_queued") : (flowJob ? "flow_job_running" : "job_running")))}</p>`;
+      box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label(jobLabel(job, job.state)))}</p>`;
       return;
     }
     box.innerHTML = `<div class="split">
         <button type="button" data-regen title="${esc(label("regen_hint", {model: modelName(CONFIG.model)}))}">⟳ ${esc(label("regen"))}</button>
         <button type="button" data-regen-more aria-haspopup="dialog" aria-label="${esc(label("regen_more"))}" title="${esc(label("regen_more"))}">▾</button></div>`
-      + (job && job.state === "error" ? `<p class="job error">${esc(label(flowJob ? "flow_job_error" : "job_error", {error: job.error}))}</p>` : "");
+      + (job && job.state === "error" ? `<p class="job error">${esc(label(jobLabel(job, "error"), {error: job.error}))}</p>` : "");
   }
 
   async function regenerate(mode, model, note) {
@@ -1060,6 +1127,8 @@
             <span>${esc(label("regen_summary"))}<span class="note">${esc(label("regen_summary_note"))}</span></span></label>
           <label class="check"><input type="radio" name="regen-mode" value="flow">
             <span>${esc(label("regen_flow"))}<span class="note">${esc(label("regen_flow_note"))}</span></span></label>
+          <label class="check"><input type="radio" name="regen-mode" value="statements">
+            <span>${esc(label("regen_statements"))}<span class="note">${esc(label("regen_statements_note"))}</span></span></label>
         </fieldset>
         <label for="regen-model">${esc(label("regen_model"))}</label>
         <select id="regen-model"><option value="">${esc(label("regen_model_default", {model: modelName(CONFIG.model)}))}</option>
@@ -1461,7 +1530,7 @@
     if (!flow) {
       panel.innerHTML = `<div class="flow-top"><h2>${esc(label("flow"))}</h2></div>
         <div class="flow-missing"><p>${esc(label("flow_missing"))}</p>${shownVersion ? "" : `<div id="flow-job"></div>`}</div>`;
-      showFlowJob();
+      showPartJob("flow");
       return;
     }
     const view = flowView();
@@ -1603,17 +1672,245 @@
     seekFlow(next.start);
   });
 
-  // The flow of a summary made before flows existed: created on request, the same way as a summary.
-  function showFlowJob() {
-    const box = document.getElementById("flow-job");
+  // The flow or the statements of a summary made before they existed: created on request, like a summary.
+  function showPartJob(part) {
+    const box = document.getElementById(`${part}-job`);
     if (!box) return;
-    const job = jobs[videoId] && jobs[videoId].mode === "flow" ? jobs[videoId] : null;
-    if (job && job.state === "queued") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("flow_job_queued"))}</p>`;
-    else if (job && job.state === "running") box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label("flow_job_running"))}</p>`;
-    else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label("flow_job_error", {error: job.error}))}</p>` : "")
-      + (CONFIG.summarize ? `<button type="button" class="action" data-mode="flow" data-summarize="${esc(videoId)}">${esc(label("flow_create"))}</button>` : "");
+    const job = jobs[videoId] && jobs[videoId].mode === part ? jobs[videoId] : null;
+    if (job && (job.state === "queued" || job.state === "running"))
+      box.innerHTML = `<p class="job"><span class="spinner"></span>${esc(label(jobLabel(job, job.state)))}</p>`;
+    else box.innerHTML = (job && job.state === "error" ? `<p class="job error">${esc(label(jobLabel(job, "error"), {error: job.error}))}</p>` : "")
+      + (CONFIG.summarize ? `<button type="button" class="action" data-mode="${part}" data-summarize="${esc(videoId)}">${esc(label(`${part}_create`))}</button>` : "");
   }
   window.addEventListener("resize", () => { if (flow && flowView() === "strip") renderFlowPanel(); });
+
+
+  // ---------- statements: every sentence with its kind, thoughts over runs of them, filters ----------
+  const ST_TYPES = ["claim", "fact", "definition", "explanation", "example", "advice", "warning", "opinion", "prediction", "question"];
+  const ST_GROUPS = {type: ST_TYPES, support: ["none", "reasoning", "experience", "example", "data", "demo", "source"],
+                     value: ["known", "useful", "insight"], relation: ["repeats", "refines", "contradicts", "answers"]};
+  let st = null;  // {rows: [{n, t, text, type, thought}], thoughts: [{n, from, to, text, support, value, relation, idea, terms}]}
+  let stFilter = null, stDrawn = false, stMarks = new Set(), stSaveTimer = null;
+  const stEmptyFilter = () => ({type: new Set(), support: new Set(), value: new Set(), relation: new Set(),
+                                filler: false, marked: false, q: "", thought: null, term: null});
+
+  function setStatements(sentences, statements, marks) {
+    st = null; stDrawn = false; stFilter = stEmptyFilter();
+    clearTimeout(stSaveTimer);
+    stMarks = new Set((marks || []).filter(n => Number.isInteger(n)));
+    if (!Array.isArray(sentences) || !statements || !Array.isArray(statements.types) || !Array.isArray(statements.thoughts)) return;
+    const rows = sentences.map((x, i) => ({n: i + 1, t: Number(x.start) || 0, text: String(x.text || ""),
+                                           type: statements.types[i] || "", thought: null}));
+    const thoughts = statements.thoughts.map((x, i) => ({...x, n: i + 1, terms: Array.isArray(x.terms) ? x.terms : []}));
+    thoughts.forEach(th => { for (let k = th.from; k <= th.to && k <= rows.length; k++) rows[k - 1].thought = th; });
+    st = {rows, thoughts};
+  }
+
+  // The filter chips open from a button; whether they are open is remembered in the browser.
+  const stFiltersOpen = () => { try { return localStorage.getItem("yt-summary-st-filters") === "open"; } catch (e) { return false; } };
+
+  function renderStatements() {
+    const panel = document.getElementById("panel-statements");
+    if (!panel || stDrawn) return;
+    if (!st) {
+      panel.innerHTML = `<section class="notice"><p>${esc(label("statements_missing"))}</p>${shownVersion ? "" : `<div id="statements-job"></div>`}</section>`;
+      showPartJob("statements");
+      return;
+    }
+    stDrawn = true;
+    const count = (group, key) => group === "type" ? st.rows.filter(r => r.type === key).length
+      : st.rows.filter(r => r.thought && (group === "relation" ? r.thought.relation && r.thought.relation.kind === key : r.thought[group] === key)).length;
+    const chips = group => ST_GROUPS[group].map(key => [key, count(group, key)]).filter(([, n]) => n)
+      .map(([key, n]) => `<button type="button" class="st-chip" data-st-chip="${group}:${key}" aria-pressed="false">${
+        esc(label(`st_${group === "relation" ? "rel" : group}_${key}`))}<span class="cnt">${n}</span></button>`).join("");
+    panel.innerHTML = `
+      <div class="st-tools">
+        <input type="search" id="st-q" placeholder="${esc(label("st_search"))}" aria-label="${esc(label("st_search"))}">
+        <button type="button" class="st-chip" id="st-filler" aria-pressed="false">${esc(label("st_hide_filler"))}<span class="cnt">${st.rows.filter(r => !r.type).length}</span></button>
+        <button type="button" class="st-chip" id="st-marked" aria-pressed="false">★ ${esc(label("st_marked"))}<span class="cnt" id="st-marked-n"></span></button>
+        <span class="st-error" id="st-marks-error" role="status"></span>
+        <button type="button" class="st-toggle" data-st-toggle aria-expanded="${stFiltersOpen()}" aria-controls="st-filters">${esc(label("st_filters"))} ▾</button>
+        <span class="st-count" id="st-count"></span>
+      </div>
+      <div class="st-filters" id="st-filters"${stFiltersOpen() ? "" : " hidden"}>${["type", "support", "value", "relation"].map(group => {
+        const html = chips(group);
+        return html ? `<span>${esc(label(`st_${group}`))}</span><div class="st-chips">${html}</div>` : "";
+      }).join("")}
+      </div>
+      <div id="st-active"></div>
+      <table class="st" title="${esc(label("st_ctrl_hint"))}"><tbody id="st-body"></tbody></table>`;
+    drawStatements();
+  }
+
+  function stVisible(r) {
+    const f = stFilter, th = r.thought;
+    if (f.filler && !r.type) return false;
+    if (f.marked && !stMarks.has(r.n)) return false;
+    if (f.type.size && !f.type.has(r.type)) return false;
+    if ((f.support.size || f.value.size || f.relation.size || f.thought || f.term) && !th) return false;
+    if (f.support.size && !f.support.has(th.support)) return false;
+    if (f.value.size && !f.value.has(th.value)) return false;
+    if (f.relation.size && !(th.relation && f.relation.has(th.relation.kind))) return false;
+    if (f.thought && th.n !== f.thought) return false;
+    if (f.term && !th.terms.includes(f.term)) return false;
+    if (f.q) {
+      const words = plain(f.q).split(/\s+/).filter(Boolean);
+      const hay = plain([r.text, th ? th.text : "", th ? th.terms.join(" ") : ""].join(" "));
+      if (!words.every(w => hay.includes(w))) return false;
+    }
+    return true;
+  }
+
+  function drawStatements() {
+    const body = document.getElementById("st-body");
+    if (!body) return;
+    const shown = st.rows.filter(stVisible);
+    const html = [];
+    let lastThought = null;
+    for (const r of shown) {
+      const th = r.thought;
+      if (th && th !== lastThought && (th.from === r.n || !shown.some(x => x.thought === th && x.n < r.n))) html.push(stHead(th));
+      lastThought = th || lastThought;
+      const kind = flow ? segmentAt(r.t).kind : null;
+      html.push(`<tr class="row${r.type ? "" : " filler"}${stMarks.has(r.n) ? " marked" : ""}" data-t="${r.t}" data-n="${r.n}"${kind ? ` style="--k:var(--flow-${kind})"` : ""}>
+        <td class="time"${kind ? ` title="${esc(kindName(kind))}"` : ""}>${timeLink(Math.max(0, Math.floor(r.t) - 1), hms(r.t))}</td>
+        <td class="num">${th ? `<button type="button" class="link" data-st-thought="${th.n}">#${th.n}</button>` : ""}${
+          stMarks.has(r.n) ? `<span class="mark" aria-label="${esc(label("st_marked"))}">★</span>` : ""}</td>
+        <td class="text">${esc(r.text)}</td>
+        <td class="kind">${esc(r.type ? label(`st_type_${r.type}`) : label("st_filler"))}</td></tr>`);
+    }
+    body.innerHTML = html.join("") || `<tr><td class="st-empty" colspan="4">${esc(label("st_nothing"))}</td></tr>`;
+    document.getElementById("st-count").textContent = label("st_count", {shown: shown.length, total: st.rows.length});
+    document.getElementById("st-marked-n").textContent = stMarks.size;
+    document.getElementById("st-marked").setAttribute("aria-pressed", String(stFilter.marked));
+    document.getElementById("st-filler").setAttribute("aria-pressed", String(stFilter.filler));
+    const active = [];
+    for (const group of ["type", "support", "value", "relation"])
+      for (const key of stFilter[group]) active.push(`<button type="button" class="st-chip x" data-st-chip="${group}:${key}" aria-pressed="true">✕ ${
+        esc(label(`st_${group === "relation" ? "rel" : group}_${key}`))}</button>`);
+    if (stFilter.thought) active.push(`<button type="button" class="st-chip x" data-st-drop="thought">✕ #${stFilter.thought}</button>`);
+    if (stFilter.term) active.push(`<button type="button" class="st-chip x" data-st-drop="term">✕ ${esc(stFilter.term)}</button>`);
+    if (stFilter.filler) active.push(`<button type="button" class="st-chip x" data-st-drop="filler">✕ ${esc(label("st_hide_filler"))}</button>`);
+    if (stFilter.marked) active.push(`<button type="button" class="st-chip x" data-st-drop="marked">✕ ★ ${esc(label("st_marked"))}</button>`);
+    const any = active.length || stFilter.filler || stFilter.q || ["type", "support", "value", "relation"].some(g => stFilter[g].size);
+    if (any) active.push(`<button type="button" class="st-chip" data-st-drop="all">${esc(label("st_clear"))}</button>`);
+    document.getElementById("st-active").innerHTML = active.join("");
+  }
+
+  const stMarkedIn = th => { let n = 0; for (let k = th.from; k <= th.to; k++) if (stMarks.has(k)) n++; return n; };
+
+  // The row over the sentences of one thought: its number, its point, its attributes and terms.
+  function stHead(th) {
+    const rel = th.relation && th.relation.kind
+      ? `<span class="tag">${esc(label(`st_rel_${th.relation.kind}`))} <button type="button" class="link" data-st-goto="${th.relation.to}">#${th.relation.to}</button></span>` : "";
+    return `<tr class="head" data-head="${th.n}"><td colspan="4"><div class="text"><button type="button" class="link" data-st-thought="${th.n}">#${th.n}</button> ${esc(th.text || "")}</div>
+      <div class="tags"><span class="tag${th.support === "none" ? " none" : ""}">${esc(label("st_support"))}: ${esc(label(`st_support_${th.support}`))}</span>
+        <span class="tag${th.value === "insight" ? " insight" : ""}">${esc(label(`st_value_${th.value}`))}</span>${rel}
+        ${th.idea ? `<span class="tag">${esc(label("st_idea", {n: th.idea}))}</span>` : ""}
+        ${stMarkedIn(th) ? `<span class="tag marks">★ ${stMarkedIn(th)}</span>` : ""}
+        ${th.terms.map(term => `<button type="button" class="link tag" data-st-term="${esc(term)}">${esc(term)}</button>`).join("")}</div></td></tr>`;
+  }
+
+  document.addEventListener("click", e => {
+    if (!st || !e.target.closest("#panel-statements")) return;
+    const toggle = e.target.closest("[data-st-toggle]");
+    if (toggle) {
+      const open = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", String(open));
+      document.getElementById("st-filters").hidden = !open;
+      try { localStorage.setItem("yt-summary-st-filters", open ? "open" : "closed"); } catch (err) {}
+      return;
+    }
+    if (e.target.closest("#st-marked")) { stFilter.marked = !stFilter.marked; drawStatements(); return; }
+    if (e.target.closest("#st-filler")) { stFilter.filler = !stFilter.filler; drawStatements(); return; }
+    const chip = e.target.closest("[data-st-chip]"), drop = e.target.closest("[data-st-drop]");
+    const thought = e.target.closest("[data-st-thought]"), term = e.target.closest("[data-st-term]"), go = e.target.closest("[data-st-goto]");
+    if (chip) {
+      const [group, key] = chip.dataset.stChip.split(":"), set = stFilter[group];
+      if (set.has(key)) set.delete(key); else set.add(key);
+      document.querySelectorAll(`#st-filters [data-st-chip="${group}:${key}"]`).forEach(c => c.setAttribute("aria-pressed", String(set.has(key))));
+    } else if (drop) {
+      const what = drop.dataset.stDrop;
+      if (what === "all") {
+        stFilter = stEmptyFilter();
+        document.querySelectorAll("#panel-statements [data-st-chip]").forEach(c => c.setAttribute("aria-pressed", "false"));
+        document.getElementById("st-q").value = "";
+      } else if (what === "marked" || what === "filler") stFilter[what] = false;
+      else stFilter[what] = null;
+    } else if (thought) stFilter.thought = stFilter.thought === Number(thought.dataset.stThought) ? null : Number(thought.dataset.stThought);
+    else if (term) stFilter.term = term.dataset.stTerm;
+    else if (go) {  // to the thought a relation points at: shown if filtered away, then scrolled to
+      const n = Number(go.dataset.stGoto);
+      if (!st.rows.some(r => r.thought && r.thought.n === n && stVisible(r))) {
+        stFilter = stEmptyFilter();
+        document.querySelectorAll("#panel-statements [data-st-chip]").forEach(c => c.setAttribute("aria-pressed", "false"));
+        document.getElementById("st-q").value = "";
+        drawStatements();
+      }
+      const head = document.querySelector(`#st-body tr[data-head="${n}"]`), panel = document.getElementById("panel-statements");
+      if (head && panel) {
+        panel.scrollTo({top: head.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - 8,
+                        behavior: document.visibilityState === "visible" ? "smooth" : "auto"});
+        head.classList.remove("flash"); void head.offsetWidth; head.classList.add("flash");
+      }
+      return;
+    } else return;
+    drawStatements();
+  });
+  // Shift+click anywhere on a sentence's row marks it, or unmarks it; the marks are saved in the archive.
+  document.addEventListener("mousedown", e => {  // no text selection from Shift+click
+    if (e.shiftKey && st && e.target.closest("#panel-statements tr.row") && !e.target.closest("a, button")) e.preventDefault();
+  });
+  document.addEventListener("click", e => {
+    if (!e.shiftKey || e.ctrlKey || e.metaKey || !st) return;
+    const row = e.target.closest("#panel-statements tr.row");
+    if (!row || e.target.closest("a, button")) return;
+    e.preventDefault();
+    const n = Number(row.dataset.n);
+    if (stMarks.has(n)) stMarks.delete(n); else stMarks.add(n);
+    drawStatements();
+    clearTimeout(stSaveTimer);
+    const id = videoId;
+    stSaveTimer = setTimeout(() => saveMarks(id), 400);
+  });
+  async function saveMarks(id) {
+    const error = document.getElementById("st-marks-error");
+    try {
+      const response = await fetch(`/api/marks/${encodeURIComponent(id)}`, {method: "POST",
+        headers: {"Content-Type": "application/json", "X-Token": TOKEN}, body: JSON.stringify({sentences: [...stMarks]})});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+      if (error && id === videoId) error.textContent = "";
+    } catch (err) {
+      if (error && id === videoId) error.textContent = label("st_marks_error", {error: err.message});
+    }
+  }
+
+  // Ctrl+click (Cmd+click) anywhere on a sentence's row plays the video from that sentence.
+  document.addEventListener("click", e => {
+    if (!(e.ctrlKey || e.metaKey) || !st) return;
+    const row = e.target.closest("#panel-statements tr.row");
+    if (!row || e.target.closest("a, button")) return;
+    e.preventDefault();
+    const t = Math.max(0, Math.floor(Number(row.dataset.t)) - 1);
+    if (ready && player) { player.seekTo(t, true); player.playVideo(); }
+    else window.open(`https://www.youtube.com/watch?v=${videoId}&t=${t}s`, "_blank", "noopener");
+    document.querySelectorAll("#panel-statements tr.row").forEach(r => r.classList.toggle("active", r === row));
+  });
+  const stKeys = e => {
+    const panel = document.getElementById("panel-statements");
+    if (!panel) return;
+    panel.classList.toggle("st-ctrl", Boolean(e.ctrlKey || e.metaKey));
+    panel.classList.toggle("st-shift", Boolean(e.shiftKey && !e.ctrlKey && !e.metaKey));
+  };
+  document.addEventListener("keydown", stKeys);
+  document.addEventListener("keyup", stKeys);
+  window.addEventListener("blur", () => stKeys({}));
+
+  document.addEventListener("input", e => {
+    if (!st) return;
+    if (e.target.id === "st-q") { stFilter.q = e.target.value.trim(); drawStatements(); }
+  });
 
   // Copy buttons: put their text on the clipboard and confirm it on the button for a moment.
   document.addEventListener("click", async e => {
@@ -1651,6 +1948,7 @@
       if (a.top < box.top || a.bottom > box.bottom) toc.scrollTop += a.top - box.top - box.height / 3;
     }
     mark(".idea", el => Number(el.dataset.t), now);
+    mark("#panel-statements tr.row", el => Number(el.dataset.t), now);
     movePlayhead(now);
   }, 1000);
 
