@@ -207,7 +207,7 @@
   aside.toc ul.topics li:hover { background: var(--accent-soft); }
   aside.toc ul.topics li.active { background: var(--active); }
   aside.toc ul.topics li span { font-size: .92rem; }
-  /* Tabs under the video: the overview with the description, and the main ideas; only their content scrolls. */
+  /* Tabs under the video: the overview, the main ideas, the statements and the description; only their content scrolls. */
   .tabs { background: var(--bg); display: flex; gap: 4px;
     border-bottom: 1px solid var(--border); margin-top: 8px; }
   .tabs button { font: inherit; font-weight: 600; font-size: .95rem; background: none; border: 0; color: var(--muted);
@@ -869,7 +869,7 @@
         </div>${s ? `<section class="flow-panel" id="flow-panel" aria-label="${esc(label("flow"))}"></section>` : ""}
       </aside>` : "";
     let tab = "overview";
-    try { const saved = localStorage.getItem("yt-summary-tab"); if (saved === "ideas" || saved === "statements") tab = saved; } catch (e) {}
+    try { const saved = localStorage.getItem("yt-summary-tab"); if (saved === "ideas" || saved === "statements" || (saved === "description" && v.description)) tab = saved; } catch (e) {}
 
     const ideasHtml = s ? `
       <section class="ideas">
@@ -910,13 +910,15 @@
         <button type="button" role="tab" id="tab-ideas" aria-controls="panel-ideas" data-tab="ideas">${esc(label("ideas"))} <span class="count">(${s.ideas.length})</span></button>
         <button type="button" role="tab" id="tab-statements" aria-controls="panel-statements" data-tab="statements">${esc(label("statements"))}${
           v.sentences && s.statements ? ` <span class="count">(${s.statements.thoughts.length})</span>` : ""}</button>
+        ${v.description ? `<button type="button" role="tab" id="tab-description" aria-controls="panel-description" data-tab="description">${esc(label("description"))}</button>` : ""}
       </div>
       <div role="tabpanel" class="scroller" id="panel-overview" aria-labelledby="tab-overview">
-        <section>${paragraphs(s.overview)}</section>
-        ${descriptionHtml}${noteHtml}
+        <section>${paragraphs(s.overview)}</section>${noteHtml}
       </div>
       <div role="tabpanel" class="scroller" id="panel-ideas" aria-labelledby="tab-ideas">${ideasHtml}${noteHtml}</div>
-      <div role="tabpanel" class="scroller" id="panel-statements" aria-labelledby="tab-statements"></div>`
+      <div role="tabpanel" class="scroller" id="panel-statements" aria-labelledby="tab-statements"></div>
+      ${v.description ? `<div role="tabpanel" class="scroller" id="panel-description" aria-labelledby="tab-description">
+        <section><div class="description">${richText(v.description)}</div></section></div>` : ""}`
       : `<div class="scroller"><section class="notice"><p>${esc(label("no_summary"))}</p>
               ${CONFIG.summarize && v.transcript ? `<div id="job-box"></div>` : ""}
               <p class="meta">${esc(label("no_summary_command"))}</p>
