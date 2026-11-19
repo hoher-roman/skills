@@ -1,0 +1,22 @@
+# Sources read from a plain sitemap of the site plus the head of each article page.
+# For sites whose RSS or homepage shows only a selection of the articles: the sitemap lists all of them.
+# Only new articles within the time window are downloaded, and from each page only the title,
+# the perex (description) and the publication time from its <meta> tags; never the text of the article.
+#
+# Fields are the same as in rss.toml, plus:
+#   link_pattern  regular expression an article URL must match (required); include/exclude also work
+#   max_sitemaps  how many files of a sitemap index to read, newest first (default 1)
+#   max_pages     most article pages downloaded in one run (default 40)
+#   max_items     most articles kept from the time window; set it above the daily count of the site
+# The sitemap is usually listed in the site's /robots.txt as "Sitemap: ...".
+
+[[source]]
+id = "ta3"
+name = "TA3"
+url = "https://www.ta3.com/cdn/sitemap/sitemap.xml"
+link_pattern = '^https://www\.ta3\.com/[a-z0-9-]+/clanok/\d+/'
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+max_pages = 60
+max_items = 150

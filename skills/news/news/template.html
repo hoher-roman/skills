@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Správy</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --text: #1d1f23; --muted: #6b7079; --line: #e3e1dc;
+  --accent: #2f5fd0; --chip: #efeee9; --chip-on: #1d1f23; --chip-on-text: #ffffff; --shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #15171a; --panel: #1d2024; --text: #e7e8ea; --muted: #9196a0; --line: #2d3137;
+    --accent: #7ea2ff; --chip: #262a2f; --chip-on: #e7e8ea; --chip-on-text: #15171a; --shadow: none; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: inherit; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 16px 48px; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 14px 0 10px; border-bottom: 1px solid var(--line); }
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+.day { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.day a, .day select, .search {
+  font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 10px; text-decoration: none; }
+.day a.off { opacity: .35; pointer-events: none; }
+.date { color: var(--muted); font-size: 14px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+.search { flex: 1 1 200px; min-width: 0; }
+.chip { font: inherit; font-size: 13px; border: 0; border-radius: 999px; padding: 3px 10px; cursor: pointer;
+  background: var(--chip); color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip .n { color: var(--muted); font-size: 12px; }
+.chip.on { background: var(--chip-on); color: var(--chip-on-text); }
+.chip.on .n { color: inherit; opacity: .7; }
+.row-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.stats { font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+ol { list-style: none; margin: 0; padding: 0; }
+li.item { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 3px; font-size: 12px; }
+.tag { border-radius: 4px; padding: 0 6px; font-weight: 600; color: #fff; }
+.tag.region { background: var(--chip); color: var(--muted); font-weight: 500; }
+.text { margin: 0; }
+.headline { font-weight: 600; }
+.perex { color: var(--muted); }
+.meta { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.meta a { color: var(--accent); text-decoration: none; }
+.meta a:hover { text-decoration: underline; }
+.meta .orig { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.also summary { cursor: pointer; color: var(--muted); }
+details.also ul { margin: 4px 0 0; padding-left: 18px; }
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
+@media (max-width: 560px) {
+  li.item { grid-template-columns: 1fr; gap: 2px; }
+  .day { margin-left: 0; width: 100%; }
+  .day select { flex: 1; min-width: 0; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <h1>Správy</h1>
+      <span class="date" id="date"></span>
+      <nav class="day">
+        <a id="newer" href="#" title="Novší deň (←)">‹</a>
+        <select id="days" aria-label="Deň"></select>
+        <a id="older" href="#" title="Starší deň (→)">›</a>
+      </nav>
+    </div>
+    <div class="filters" id="areaChips"><input class="search" id="q" type="search" placeholder="Hľadať…" aria-label="Hľadať"></div>
+    <div class="filters" id="groupChips"></div>
+  </header>
+  <div class="stats" id="stats"></div>
+  <ol id="list"></ol>
+  <footer id="foot"></footer>
+</div>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("news." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("news." + k, JSON.stringify(v)); } catch (e) {} }
+};
+const state = { areas: new Set(store.get("areas", [])), groups: new Set(store.get("groups", [])), q: "" };
+const items = (DATA && DATA.items) || [];
+const areaInfo = id => (DATA.areas[id] || { label: id, color: "#7b8088" });
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = u => /^https?:\/\//i.test(u) ? u : "#";
+const fold = s => String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
+const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("sk-SK", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const fmtTime = t => new Date(t).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
+const plural = (n, one, few, many) => n === 1 ? one : (n >= 2 && n <= 4 ? few : many);
+
+function dayNav() {
+  const days = DATA.days || [];
+  const sel = $("days");
+  sel.innerHTML = days.map(d => `<option value="${d.day}"${d.day === DATA.day ? " selected" : ""}>${d.day} (${d.count})</option>`).join("");
+  sel.onchange = () => location.href = sel.value + ".html";
+  const i = days.findIndex(d => d.day === DATA.day);
+  const newer = days[i - 1], older = days[i + 1];
+  $("newer").href = newer ? newer.day + ".html" : "#"; $("newer").classList.toggle("off", !newer);
+  $("older").href = older ? older.day + ".html" : "#"; $("older").classList.toggle("off", !older);
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+    if (e.key === "ArrowLeft" && newer) location.href = newer.day + ".html";
+    if (e.key === "ArrowRight" && older) location.href = older.day + ".html";
+  });
+  $("date").textContent = DATA.day ? fmtDay(DATA.day) : "";
+}
+
+function matches(it, skip) {
+  if (skip !== "area" && state.areas.size && !state.areas.has(it.area)) return false;
+  if (skip !== "group" && state.groups.size && !state.groups.has(it.group)) return false;
+  if (state.q) {
+    const hay = fold([it.text, it.title, it.source, it.region, areaInfo(it.area).label].join(" "));
+    if (!state.q.split(/\s+/).every(w => hay.includes(w))) return false;
+  }
+  return true;
+}
+
+function chips(boxId, key, values, render) {
+  const box = $(boxId);
+  box.querySelectorAll(".chip, .row-label").forEach(n => n.remove());
+  if (key === "groups") box.insertAdjacentHTML("beforeend", `<span class="row-label">Zdroje:</span>`);
+  for (const v of values) {
+    const b = document.createElement("button");
+    b.className = "chip" + (state[key].has(v.id) ? " on" : "");
+    b.innerHTML = render(v);
+    b.title = "Ctrl+klik: len táto";
+    b.onclick = e => {
+      const set = state[key];
+      if (e.ctrlKey || e.metaKey) {
+        const only = set.size === 1 && set.has(v.id);
+        set.clear();
+        if (!only) set.add(v.id);
+      } else {
+        set.has(v.id) ? set.delete(v.id) : set.add(v.id);
+      }
+      store.set(key, [...set]); draw();
+    };
+    box.appendChild(b);
+  }
+}
+
+function draw() {
+  const areaCount = {}, groupCount = {};
+  for (const it of items) {
+    if (matches(it, "area")) areaCount[it.area] = (areaCount[it.area] || 0) + 1;
+    if (matches(it, "group")) groupCount[it.group] = (groupCount[it.group] || 0) + 1;
+  }
+  const areaIds = Object.keys(DATA.areas).filter(a => areaCount[a] || state.areas.has(a));
+  chips("areaChips", "areas", areaIds.map(id => ({ id })), v =>
+    `<span class="dot" style="background:${esc(areaInfo(v.id).color)}"></span>${esc(areaInfo(v.id).label)} <span class="n">${areaCount[v.id] || 0}</span>`);
+  const groups = [...new Set(items.map(i => i.group).filter(Boolean))];
+  chips("groupChips", "groups", groups.map(id => ({ id })), v => `${esc(v.id)} <span class="n">${groupCount[v.id] || 0}</span>`);
+
+  const shown = items.filter(it => matches(it));
+  $("list").innerHTML = shown.map(row).join("") || `<li class="empty">${items.length ? "Filtru nezodpovedá žiadna správa." : "Pre tento deň nie sú žiadne správy."}</li>`;
+  const ai = items.filter(i => i.ai).length;
+  $("stats").textContent = `${shown.length} z ${items.length} ${plural(items.length, "správy", "správ", "správ")}` +
+    (DATA.mode === "claude" && ai < items.length ? ` · ${items.length - ai} bez zhrnutia od Clauda (zobrazený perex zdroja)` : "");
+}
+
+function row(it) {
+  const a = areaInfo(it.area);
+  const url = esc(safeUrl(it.url));
+  const body = it.ai
+    ? `<p class="text">${esc(it.text)}</p>`
+    : `<p class="text"><a class="headline" href="${url}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>${it.text ? ` <span class="perex">${esc(it.text)}</span>` : ""}</p>`;
+  const also = it.also.length ? `<details class="also"><summary>+${it.also.length} ${plural(it.also.length, "ďalší zdroj", "ďalšie zdroje", "ďalších zdrojov")}</summary><ul>${
+    it.also.map(o => `<li><a href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener noreferrer">${esc(o.source)}</a>: ${esc(o.title)}</li>`).join("")}</ul></details>` : "";
+  return `<li class="item">
+    <div class="time" title="${it.dated ? esc(new Date(it.time).toLocaleString("sk-SK")) : "Zdroj neuvádza čas; stiahnuté " + esc(new Date(it.time).toLocaleString("sk-SK"))}">${it.dated ? fmtTime(it.time) : "bez času"}</div>
+    <div>
+      <div class="tags"><span class="tag" style="background:${esc(a.color)}">${esc(a.label)}</span>${it.region ? `<span class="tag region">${esc(it.region)}</span>` : ""}</div>
+      ${body}
+      <div class="meta"><a class="orig" href="${url}" target="_blank" rel="noopener noreferrer" title="${esc(it.title)}">${esc(it.source)}${it.ai ? ": " + esc(it.title) : ""} ↗</a>${also}</div>
+    </div>
+  </li>`;
+}
+
+if (!DATA || !DATA.day) {
+  document.querySelector(".wrap").innerHTML = '<p class="empty">Zatiaľ žiadne správy. Spusti /news alebo news.cmd.</p>';
+} else {
+  dayNav();
+  $("q").oninput = e => { state.q = fold(e.target.value.trim()); draw(); };
+  $("foot").textContent = "Aktualizované " + new Date(DATA.generated).toLocaleString("sk-SK") + " · stiahnuté len zo zdrojov v konfigurácii, uložené lokálne";
+  draw();
+}
+</script>
+</body>
+</html>

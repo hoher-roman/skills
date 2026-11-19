@@ -1,0 +1,206 @@
+# Sources read through RSS, Atom or JSON Feed.
+#
+# Every [[source]] has:
+#   id       unique short name (letters, digits, dashes)
+#   name     shown in the overview
+#   url      address of the feed
+#   lang     language of the source (sk, cs, en, ...)
+#   region   where the source reports from, used when nothing better is known
+#   group    filter group in the overview (e.g. "Slovenské", "České", "Svetové", "Tech a veda")
+# Optional:
+#   area     default area when none is recognized (see [areas] in settings.toml)
+#   enabled  false turns the source off without deleting it
+#   include  regular expression; only article URLs matching it are taken
+#   exclude  regular expression; article URLs matching it are skipped
+#   max_items  overrides max_items_per_source from settings.toml
+
+# --- Slovenské ---
+
+[[source]]
+id = "sme"
+name = "SME"
+url = "https://www.sme.sk/rss-title"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+[[source]]
+id = "dennikn"
+name = "Denník N"
+url = "https://dennikn.sk/feed/"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+[[source]]
+id = "aktuality"
+name = "Aktuality"
+url = "https://www.aktuality.sk/rss/"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+[[source]]
+id = "pravda"
+name = "Pravda"
+url = "https://spravy.pravda.sk/rss/xml/"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+[[source]]
+id = "teraz"
+name = "TASR (teraz.sk)"
+url = "https://www.teraz.sk/rss/vsetky-spravy.rss"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+[[source]]
+id = "hnonline"
+name = "Hospodárske noviny"
+url = "https://www.hnonline.sk/feed"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+max_items = 25
+
+[[source]]
+id = "postoj"
+name = "Postoj"
+url = "https://www.postoj.sk/rss"
+lang = "sk"
+region = "Slovensko"
+group = "Slovenské"
+
+# --- České ---
+
+[[source]]
+id = "irozhlas"
+name = "iROZHLAS"
+url = "https://www.irozhlas.cz/rss/irozhlas"
+lang = "cs"
+region = "Česko"
+group = "České"
+
+[[source]]
+id = "ct24"
+name = "ČT24"
+url = "https://ct24.ceskatelevize.cz/rss/hlavni-zpravy"
+lang = "cs"
+region = "Česko"
+group = "České"
+
+[[source]]
+id = "novinky"
+name = "Novinky.cz"
+url = "https://www.novinky.cz/rss"
+lang = "cs"
+region = "Česko"
+group = "České"
+
+[[source]]
+id = "seznamzpravy"
+name = "Seznam Zprávy"
+url = "https://www.seznamzpravy.cz/rss"
+lang = "cs"
+region = "Česko"
+group = "České"
+
+# --- Svetové ---
+
+[[source]]
+id = "bbc"
+name = "BBC News"
+url = "https://feeds.bbci.co.uk/news/world/rss.xml"
+lang = "en"
+region = "Svet"
+group = "Svetové"
+
+[[source]]
+id = "guardian"
+name = "The Guardian"
+url = "https://www.theguardian.com/world/rss"
+lang = "en"
+region = "Svet"
+group = "Svetové"
+
+[[source]]
+id = "npr"
+name = "NPR"
+url = "https://feeds.npr.org/1001/rss.xml"
+lang = "en"
+region = "USA"
+group = "Svetové"
+
+[[source]]
+id = "aljazeera"
+name = "Al Jazeera"
+url = "https://www.aljazeera.com/xml/rss/all.xml"
+lang = "en"
+region = "Svet"
+group = "Svetové"
+
+[[source]]
+id = "dw"
+name = "DW"
+url = "https://rss.dw.com/rdf/rss-en-all"
+lang = "en"
+region = "Svet"
+group = "Svetové"
+
+# --- Tech a veda ---
+
+[[source]]
+id = "arstechnica"
+name = "Ars Technica"
+url = "https://feeds.arstechnica.com/arstechnica/index"
+lang = "en"
+region = "Svet"
+group = "Tech a veda"
+area = "technologie"
+
+[[source]]
+id = "theverge"
+name = "The Verge"
+url = "https://www.theverge.com/rss/index.xml"
+lang = "en"
+region = "Svet"
+group = "Tech a veda"
+area = "technologie"
+
+[[source]]
+id = "hackernews"
+name = "Hacker News"
+url = "https://news.ycombinator.com/rss"
+lang = "en"
+region = "Svet"
+group = "Tech a veda"
+area = "technologie"
+
+[[source]]
+id = "nature"
+name = "Nature"
+url = "https://www.nature.com/nature.rss"
+lang = "en"
+region = "Svet"
+group = "Tech a veda"
+area = "veda"
+
+[[source]]
+id = "sciencedaily"
+name = "ScienceDaily"
+url = "https://www.sciencedaily.com/rss/top.xml"
+lang = "en"
+region = "Svet"
+group = "Tech a veda"
+area = "veda"
+
+[[source]]
+id = "zive"
+name = "Živé.sk"
+url = "https://zive.aktuality.sk/rss/najnovsie/"
+lang = "sk"
+region = "Slovensko"
+group = "Tech a veda"
+area = "technologie"

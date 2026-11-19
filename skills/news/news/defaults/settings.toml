@@ -1,0 +1,95 @@
+# Settings of the /news skill. Sources are in the other .toml files of this folder,
+# one file per technology: rss.toml, sitemap.toml, html.toml.
+
+[general]
+# How the short texts are made:
+#   "claude"  /news has Claude write a Slovak summary of 1-2 sentences and set the area and region
+#             (items not summarized yet show the script text until then)
+#   "script"  the perex from the source, cut to 1-2 sentences, area by keywords below; no AI,
+#             runs without Claude (news.cmd), texts stay in the language of the source
+summary_mode = "claude"
+
+# Only items published in the last N hours are taken on each fetch.
+window_hours = 36
+# Items older than N days are removed from the archive.
+retention_days = 30
+# At most N newest items from one source per fetch (a source can override it with max_items).
+max_items_per_source = 40
+# Two headlines of the same language with this share of common words are one story with several sources (0-1).
+duplicate_similarity = 0.6
+# Seconds to wait for one source.
+timeout = 20
+# Where the HTML overview is written; empty means the "site" folder next to this config folder.
+site_dir = ""
+
+[claude]
+# Model of the subagents that write the summaries: "sonnet", "haiku", or "inherit" (same as the conversation).
+model = "sonnet"
+# Items per subagent, and how many subagents run at once.
+batch_size = 40
+parallel = 3
+
+# Areas of the news. `label` is shown in the overview, `color` is its tag color.
+# `keywords` are used only by the script (summary_mode = "script", or before Claude summarizes):
+# an area wins when a word of the headline, the source's categories or the article URL starts with one of them
+# (lowercase, without diacritics). Claude chooses the area by meaning.
+
+[areas.politika]
+label = "Politika"
+color = "#3b6fd4"
+keywords = ["politik", "politic", "vlad", "vlád", "parlament", "snem", "snemov", "poslan", "minist", "premier", "premiér", "prezident", "volb", "volieb", "election", "koalic", "opozic", "strana", "smer", "hlas-sd", "progresiv", "senat", "senát", "congress", "kongres", "eu-", "brusel", "domov", "domaci", "fico", "babis", "trump"]
+
+[areas.ekonomika]
+label = "Ekonomika"
+color = "#1f9d74"
+keywords = ["ekonom", "econom", "biznis", "business", "financ", "trh", "market", "burz", "akci", "inflac", "infla", "dan", "tax", "rozpoc", "budget", "bank", "eur", "dolar", "ceny", "cena", "mzd", "plat", "dochod", "firm", "spolocnost-", "obchod", "trade", "tarif", "clo", "ropa", "oil", "energ", "hdp", "gdp", "zamestnan", "nezamest", "reality"]
+
+[areas.technologie]
+label = "Technológie"
+color = "#7a52cc"
+keywords = ["tech", "ai", "umela-inteligencia", "inteligenc", "softver", "software", "aplikac", "app", "internet", "kyber", "cyber", "hack", "smartfon", "smartphone", "iphone", "android", "apple", "google", "microsoft", "nvidia", "openai", "cip", "chip", "pocitac", "computer", "robot", "elektromobil", "tesla", "gaming", "hry", "zive"]
+
+[areas.veda]
+label = "Veda"
+color = "#0e8fb0"
+keywords = ["veda", "vedci", "vedec", "science", "scien", "vyskum", "vyzkum", "research", "studi", "study", "vesmir", "space", "nasa", "esa", "planet", "astronom", "fyzik", "physic", "biolog", "chemi", "genet", "archeolog", "dinosaur", "evoluc", "evolution"]
+
+[areas.zdravie]
+label = "Zdravie"
+color = "#d0507a"
+keywords = ["zdrav", "health", "nemocnic", "hospital", "lekar", "doctor", "liek", "lek", "drug", "vakcin", "vaccin", "chorob", "disease", "rakovin", "cancer", "virus", "epidem", "pandem", "chripk", "pacient", "patient", "medic"]
+
+[areas.zivotne-prostredie]
+label = "Životné prostredie"
+color = "#4c9a2a"
+keywords = ["klima", "climate", "pocasie", "pocasi", "weather", "sneh", "snez", "mraz", "povod", "flood", "sucho", "drought", "pozar", "wildfire", "emis", "uhlik", "carbon", "priroda", "nature", "prostred", "environment", "zviera", "animal", "les", "forest", "hurikan", "hurricane", "zemetras", "earthquake", "shmu"]
+
+[areas.konflikty]
+label = "Vojny a konflikty"
+color = "#c2412d"
+keywords = ["vojn", "valk", "war", "armad", "army", "military", "vojak", "soldier", "utok", "attack", "strel", "rakete", "raket", "missile", "dron", "drone", "ukrajin", "ukraine", "rusk", "russia", "gaz", "gaza", "izrael", "israel", "hamas", "iran", "nato", "konflikt", "conflict", "terror", "bomb", "sankci", "sanction"]
+
+[areas.kriminalita]
+label = "Krimi a súdy"
+color = "#8a5a2b"
+keywords = ["polic", "police", "sud", "court", "obvin", "obzal", "charged", "zatk", "arrest", "vrazd", "murder", "krimi", "crime", "podvod", "fraud", "korupc", "corrupt", "vazb", "trest", "prokur", "nakaz", "nehod", "accident", "havari"]
+
+[areas.spolocnost]
+label = "Spoločnosť"
+color = "#b07d12"
+keywords = ["spolocnost", "society", "skol", "school", "vzdelav", "education", "rodin", "family", "doprava", "transport", "cirkev", "church", "pap", "pope", "migr", "obyvatel", "people", "socialn", "dochodc", "studen", "byvan", "housing", "regi"]
+
+[areas.kultura]
+label = "Kultúra"
+color = "#a04fb0"
+keywords = ["kultur", "culture", "film", "movie", "kino", "cinema", "hudb", "music", "koncert", "concert", "kniha", "book", "divadl", "theat", "seri", "netflix", "umeni", "art", "festival", "oscar", "grammy", "spevak", "herec", "actor", "celebr", "medialne", "televizi"]
+
+[areas.sport]
+label = "Šport"
+color = "#e07b16"
+keywords = ["sport", "futbal", "fotbal", "football", "soccer", "hokej", "hockey", "nhl", "nba", "nfl", "tenis", "tennis", "olymp", "majstrovstv", "mistrovstvi", "championship", "liga", "league", "zapas", "match", "formul", "f1", "lyz", "ski", "cyklist", "atlet", "gol", "goal"]
+
+[areas.ine]
+label = "Ostatné"
+color = "#7b8088"
+keywords = []

@@ -1,0 +1,19 @@
+# Sources read from a plain HTML page: headlines are the texts of links whose URL matches `link_pattern`.
+# The last resort for sites with neither RSS nor a sitemap (otherwise use rss.toml or pages.toml).
+# Pages carry no dates and no perex, so items get the time they were first seen and the short text
+# is made from the headline. Only what the page shows at the moment of the download is caught.
+#
+# Fields are the same as in rss.toml, plus:
+#   link_pattern      regular expression an absolute article URL must match (required)
+#   min_title_length  shortest link text taken as a headline (default 25)
+#
+# Example:
+# [[source]]
+# id = "example"
+# name = "Example"
+# url = "https://www.example.sk/"
+# link_pattern = '^https://www\.example\.sk/clanok/\d+/'
+# lang = "sk"
+# region = "Slovensko"
+# group = "Slovenské"
+# max_items = 15

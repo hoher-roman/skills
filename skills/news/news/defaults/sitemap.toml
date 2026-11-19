@@ -1,0 +1,19 @@
+# Sources read through a Google News sitemap, for sites without a public RSS feed.
+# Sitemaps carry only headlines (no perex), so the short text is made from the headline.
+#
+# Fields are the same as in rss.toml; `url` is the address of the news sitemap
+# (often listed in the site's /robots.txt as "Sitemap: ...news...").
+# Optional: max_sitemaps  how many files of a sitemap index to read (default 3)
+
+# AP refuses requests that do not come from a browser (HTTP 403), so it is off.
+# Other news sitemaps that work: https://www.theguardian.com/sitemaps/news.xml,
+# https://www.aljazeera.com/news-sitemap.xml (both sites also have RSS in rss.toml).
+[[source]]
+enabled = false
+id = "ap"
+name = "AP News"
+url = "https://apnews.com/news-sitemap-content.xml"
+lang = "en"
+region = "Svet"
+group = "Svetové"
+exclude = "/(video|live|photo-gallery)/"
