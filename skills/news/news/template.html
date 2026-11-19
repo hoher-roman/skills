@@ -53,6 +53,23 @@ li.item { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 12
 details.also summary { cursor: pointer; color: var(--muted); }
 details.also ul { margin: 4px 0 0; padding-left: 18px; }
 .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+.tabs { display: flex; gap: 4px; margin-top: 10px; }
+.tab { font: inherit; font-size: 14px; border: 0; background: none; color: var(--muted); cursor: pointer;
+  padding: 4px 12px; border-radius: 8px; }
+.tab:hover { color: var(--text); }
+.tab.on { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: var(--shadow); outline: 1px solid var(--line); }
+.tab .n { font-weight: 400; color: var(--muted); font-size: 12px; }
+body:not(.news-tab) .filters, body:not(.news-tab) #newsView { display: none; }
+body.news-tab #digestView { display: none; }
+.intro { font-size: 17px; line-height: 1.6; margin: 18px 0 8px; }
+ol.top { counter-reset: top; }
+li.item > div { min-width: 0; }
+ol.top li.item { grid-template-columns: 28px 52px 1fr; }
+@media (max-width: 560px) { ol.top li.item { grid-template-columns: 28px 1fr; } ol.top li.item .time { display: none; } }
+ol.top li.item::before { counter-increment: top; content: counter(top); font-size: 20px; font-weight: 650;
+  color: var(--muted); font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); margin: 14px 0 0; }
+.note a { color: var(--accent); cursor: pointer; }
 footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
 @media (max-width: 560px) {
   li.item { grid-template-columns: 1fr; gap: 2px; }
@@ -73,11 +90,18 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
         <a id="older" href="#" title="Starší deň (→)">›</a>
       </nav>
     </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab" data-tab="sumar">Prehľad dňa</button>
+      <button class="tab" data-tab="spravy">Všetky správy <span class="n" id="newsCount"></span></button>
+    </nav>
     <div class="filters" id="areaChips"><input class="search" id="q" type="search" placeholder="Hľadať…" aria-label="Hľadať"></div>
     <div class="filters" id="groupChips"></div>
   </header>
-  <div class="stats" id="stats"></div>
-  <ol id="list"></ol>
+  <section id="digestView"></section>
+  <section id="newsView">
+    <div class="stats" id="stats"></div>
+    <ol id="list"></ol>
+  </section>
   <footer id="foot"></footer>
 </div>
 <script>
@@ -101,15 +125,15 @@ function dayNav() {
   const days = DATA.days || [];
   const sel = $("days");
   sel.innerHTML = days.map(d => `<option value="${d.day}"${d.day === DATA.day ? " selected" : ""}>${d.day} (${d.count})</option>`).join("");
-  sel.onchange = () => location.href = sel.value + ".html";
+  sel.onchange = () => location.href = sel.value + ".html" + location.hash;
   const i = days.findIndex(d => d.day === DATA.day);
   const newer = days[i - 1], older = days[i + 1];
   $("newer").href = newer ? newer.day + ".html" : "#"; $("newer").classList.toggle("off", !newer);
   $("older").href = older ? older.day + ".html" : "#"; $("older").classList.toggle("off", !older);
   document.addEventListener("keydown", e => {
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
-    if (e.key === "ArrowLeft" && newer) location.href = newer.day + ".html";
-    if (e.key === "ArrowRight" && older) location.href = older.day + ".html";
+    if (e.key === "ArrowLeft" && newer) location.href = newer.day + ".html" + location.hash;
+    if (e.key === "ArrowRight" && older) location.href = older.day + ".html" + location.hash;
   });
   $("date").textContent = DATA.day ? fmtDay(DATA.day) : "";
 }
@@ -161,16 +185,46 @@ function draw() {
   chips("groupChips", "groups", groups.map(id => ({ id })), v => `${esc(v.id)} <span class="n">${groupCount[v.id] || 0}</span>`);
 
   const shown = items.filter(it => matches(it));
-  $("list").innerHTML = shown.map(row).join("") || `<li class="empty">${items.length ? "Filtru nezodpovedá žiadna správa." : "Pre tento deň nie sú žiadne správy."}</li>`;
+  $("list").innerHTML = shown.map(it => row(it)).join("") || `<li class="empty">${items.length ? "Filtru nezodpovedá žiadna správa." : "Pre tento deň nie sú žiadne správy."}</li>`;
   const ai = items.filter(i => i.ai).length;
   $("stats").textContent = `${shown.length} z ${items.length} ${plural(items.length, "správy", "správ", "správ")}` +
     (DATA.mode === "claude" && ai < items.length ? ` · ${items.length - ai} bez zhrnutia od Clauda (zobrazený perex zdroja)` : "");
 }
 
-function row(it) {
+function tab(name) {
+  const news = name === "spravy" || !DATA.digest;
+  document.body.classList.toggle("news-tab", news);
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", (b.dataset.tab === "spravy") === news));
+  $("tabs").style.display = DATA.digest ? "" : "none";
+  for (const id of ["newer", "older"]) {
+    const a = $(id); a.href = a.href.split("#")[0] + (news && DATA.digest ? "#spravy" : "");
+  }
+}
+
+function setTab(name) {
+  history.replaceState(null, "", name === "spravy" ? "#spravy" : location.pathname + location.search);
+  tab(name);
+  window.scrollTo(0, 0);
+}
+
+function digest() {
+  const d = DATA.digest;
+  if (!d) return;
+  const note = d.kind === "claude"
+    ? `Prehľad dňa napísal Claude ${esc(new Date(d.at).toLocaleString("sk-SK", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }))}` +
+      (d.newer ? ` · odvtedy pribudlo ${d.newer} ${plural(d.newer, "zhrnutá správa", "zhrnuté správy", "zhrnutých správ")}` : "")
+    : "Automatický výber: správy, o ktorých píše najviac zdrojov. Prehľad dňa od Clauda zatiaľ nie je.";
+  $("digestView").innerHTML =
+    (d.intro ? `<p class="intro">${esc(d.intro)}</p>` : "") +
+    `<ol class="top">${d.stories.map(it => row(it, it.digest_text)).join("")}</ol>` +
+    `<p class="note">${note} · <a id="toNews">Všetky správy dňa (${items.length}) →</a></p>`;
+  $("toNews").onclick = () => setTab("spravy");
+}
+
+function row(it, digestText) {
   const a = areaInfo(it.area);
   const url = esc(safeUrl(it.url));
-  const body = it.ai
+  const body = digestText ? `<p class="text">${esc(digestText)}</p>` : it.ai
     ? `<p class="text">${esc(it.text)}</p>`
     : `<p class="text"><a class="headline" href="${url}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>${it.text ? ` <span class="perex">${esc(it.text)}</span>` : ""}</p>`;
   const also = it.also.length ? `<details class="also"><summary>+${it.also.length} ${plural(it.also.length, "ďalší zdroj", "ďalšie zdroje", "ďalších zdrojov")}</summary><ul>${
@@ -180,7 +234,7 @@ function row(it) {
     <div>
       <div class="tags"><span class="tag" style="background:${esc(a.color)}">${esc(a.label)}</span>${it.region ? `<span class="tag region">${esc(it.region)}</span>` : ""}</div>
       ${body}
-      <div class="meta"><a class="orig" href="${url}" target="_blank" rel="noopener noreferrer" title="${esc(it.title)}">${esc(it.source)}${it.ai ? ": " + esc(it.title) : ""} ↗</a>${also}</div>
+      <div class="meta"><a class="orig" href="${url}" target="_blank" rel="noopener noreferrer" title="${esc(it.title)}">${esc(it.source)}${it.ai || digestText ? ": " + esc(it.title) : ""} ↗</a>${also}</div>
     </div>
   </li>`;
 }
@@ -189,6 +243,11 @@ if (!DATA || !DATA.day) {
   document.querySelector(".wrap").innerHTML = '<p class="empty">Zatiaľ žiadne správy. Spusti /news alebo news.cmd.</p>';
 } else {
   dayNav();
+  $("newsCount").textContent = items.length;
+  document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+  window.addEventListener("hashchange", () => tab(location.hash === "#spravy" ? "spravy" : "sumar"));
+  digest();
+  tab(location.hash === "#spravy" ? "spravy" : "sumar");
   $("q").oninput = e => { state.q = fold(e.target.value.trim()); draw(); };
   $("foot").textContent = "Aktualizované " + new Date(DATA.generated).toLocaleString("sk-SK") + " · stiahnuté len zo zdrojov v konfigurácii, uložené lokálne";
   draw();
