@@ -470,7 +470,8 @@ def cmd_pending(args):
         return
     BATCH_DIR.mkdir(parents=True)
     size = max(1, int(settings["claude"]["batch_size"]))
-    areas = {k: v.get("label", k) for k, v in settings["areas"].items()}
+    areas = {k: v.get("label", k) + (f" ({v['description']})" if v.get("description") else "")
+             for k, v in settings["areas"].items()}
     batches = [todo[i:i + size] for i in range(0, len(todo), size)]
     print(f"Items: {len(todo)}  Batches: {len(batches)}  Model: {settings['claude']['model']}  "
           f"Parallel: {settings['claude']['parallel']}")
@@ -532,20 +533,41 @@ def cmd_apply(args):
 
 # ---------------------------------------------------------------- summary of the day
 
-def load_digest(day):
-    path = DIGEST_DIR / f"{day}.json"
+def sections(settings):
+    """[(id, label, set of areas or None)] in the order of the columns; None takes all other areas."""
+    out = [(sid, s.get("label", sid), set(s["areas"]) if s.get("areas") else None)
+           for sid, s in settings.get("sections", {}).items()]
+    if not any(a is None for _, _, a in out):
+        out.insert(0, ("main", "Správy", None))
+    return out
+
+
+def section_of(area, secs):
+    for sid, _, areas in secs:
+        if areas and area in areas:
+            return sid
+    return next(sid for sid, _, areas in secs if areas is None)
+
+
+def digest_name(day, section, secs):
+    """File name stem of a summary: the day for the first section, day.section for the others."""
+    return day if section == secs[0][0] else f"{day}.{section}"
+
+
+def load_digest(day, section, secs):
+    path = DIGEST_DIR / f"{digest_name(day, section, secs)}.json"
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
 
 
-def digest_due(day, entries):
-    """True when the day has enough summarized stories and no summary, or grew since its summary."""
+def digest_due(day, section, secs, entries):
+    """True when the section of the day has enough summarized stories and no summary, or grew since."""
     done = sum(1 for e in entries if e["ai"])
     if done < DIGEST_MIN_STORIES:
         return False
-    old = load_digest(day)
+    old = load_digest(day, section, secs)
     if not old:
         return True
     grown = done - int(old.get("story_count", 0))
@@ -555,24 +577,29 @@ def digest_due(day, entries):
 def cmd_digest(args):
     ensure_config()
     settings = load_settings()
+    secs = sections(settings)
     by_day = build_days(settings, load_store())
     DIGEST_DIR.mkdir(parents=True, exist_ok=True)
     for old in DIGEST_DIR.glob("*.input.json"):
         old.unlink()
-    due = [d for d in sorted(by_day, reverse=True)[:DIGEST_DAYS] if digest_due(d, by_day[d])]
+    due = [(d, sid, label, [e for e in by_day[d] if e["section"] == sid])
+           for d in sorted(by_day, reverse=True)[:DIGEST_DAYS] for sid, label, _ in secs]
+    due = [x for x in due if digest_due(x[0], x[1], secs, x[3])]
     if not due:
         print("Nothing to do.")
         return
-    print(f"Days: {len(due)}  Model: {settings['claude']['model']}")
+    print(f"Summaries: {len(due)}  Model: {settings['claude']['model']}")
     areas = {k: v.get("label", k) for k, v in settings["areas"].items()}
-    for day in due:
-        entries = [e for e in by_day[day] if e["ai"]]
-        path = DIGEST_DIR / f"{day}.input.json"
+    for day, sid, label, section_entries in due:
+        entries = [e for e in section_entries if e["ai"]]
+        stem = digest_name(day, sid, secs)
+        path = DIGEST_DIR / f"{stem}.input.json"
         data = {
             "day": day,
+            "section": label,
             "language": "sk",
             "areas": areas,
-            "result_file": str(DIGEST_DIR / f"{day}.result.json"),
+            "result_file": str(DIGEST_DIR / f"{stem}.result.json"),
             "stories": [{
                 "id": e["id"],
                 "time": from_iso(e["time"]).astimezone().strftime("%H:%M") if e["dated"] else "",
@@ -586,20 +613,22 @@ def cmd_digest(args):
         head = json.dumps({k: v for k, v in data.items() if k != "stories"}, ensure_ascii=False)[:-1]
         lines = [json.dumps(s, ensure_ascii=False) for s in data["stories"]]
         path.write_text(head + ', "stories": [\n' + ",\n".join(lines) + "\n]}\n", encoding="utf-8")
-        print(f"Digest: {path}  ({day}, {len(entries)} stories, {len(lines) + 2} lines)")
+        print(f"Digest: {path}  ({day} {label}, {len(entries)} stories, {len(lines) + 2} lines)")
 
 
 def cmd_digest_apply(args):
     ensure_config()
     settings = load_settings()
+    secs = sections(settings)
     path = Path(args.result)
     try:
         result = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         die(f"cannot read {path}: {e}")
-    day = path.name.split(".")[0]
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
-        die(f"{path.name}: the file name must start with the day (YYYY-MM-DD)")
+    m = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?:\.([\w-]+))?\.result\.json", path.name)
+    if not m or (m.group(2) and m.group(2) not in [s[0] for s in secs]):
+        die(f"{path.name}: the file name must be <day>[.<section>].result.json")
+    day, section = m.group(1), m.group(2) or secs[0][0]
     items = load_store()["items"]
     intro = clean_text(result.get("intro", ""), 1200)
     picked, skipped = [], []
@@ -612,18 +641,19 @@ def cmd_digest_apply(args):
     if not intro or not picked:
         die("the result needs an intro and at least one story with a known id"
             + (f" (unknown: {', '.join(skipped[:10])})" if skipped else ""))
-    entries = build_days(settings, {"items": items, "sources": {}}).get(day, [])
-    data = {"day": day, "intro": intro, "stories": picked, "at": iso(now_utc()),
+    entries = [e for e in build_days(settings, {"items": items, "sources": {}}).get(day, []) if e["section"] == section]
+    data = {"day": day, "section": section, "intro": intro, "stories": picked, "at": iso(now_utc()),
             "story_count": sum(1 for e in entries if e["ai"])}
-    (DIGEST_DIR / f"{day}.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"Day: {day}  Stories: {len(picked)}  Skipped: {len(skipped)}"
+    (DIGEST_DIR / f"{digest_name(day, section, secs)}.json").write_text(
+        json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"Day: {day}  Section: {section}  Stories: {len(picked)}  Skipped: {len(skipped)}"
           + (f" ({', '.join(skipped[:10])})" if skipped else ""))
 
 
-def day_digest(day, entries, primary_of):
-    """The summary of the day for the page: Claude's when there is one, else the stories most sources report."""
+def day_digest(day, section, secs, entries, primary_of):
+    """The summary of one section of a day: Claude's when there is one, else the stories most sources report."""
     by_id = {e["id"]: e for e in entries}
-    d = load_digest(day)
+    d = load_digest(day, section, secs)
     if d:
         stories_out = []
         for s in d["stories"]:
@@ -644,6 +674,7 @@ def build_days(settings, store):
     """{local day: [story entries]} of the whole archive."""
     items = store["items"]
     primary_of = stories(items, settings)
+    secs = sections(settings)
     groups = {}
     for iid, pid in primary_of.items():
         groups.setdefault(pid, []).append(items[iid])
@@ -665,10 +696,12 @@ def build_days(settings, store):
             "group": p["group"],
             "lang": p["lang"],
             "area": ai["area"] if ai else script_area(p, settings),
+            "section": "",
             "region": (ai["region"] if ai and ai.get("region") else p["region"]),
             "also": [{"source": m["source_name"], "url": m["url"], "title": m["title"]}
                      for m in sorted(members, key=lambda m: m["published"]) if m["id"] != pid],
         }
+        entry["section"] = section_of(entry["area"], secs)
         by_day.setdefault(local.strftime("%Y-%m-%d"), []).append(entry)
     for entries in by_day.values():
         entries.sort(key=lambda e: (e["dated"], e["time"]), reverse=True)
@@ -699,6 +732,7 @@ def cmd_render(args):
     store = load_store()
     by_day = build_days(settings, store)
     primary_of = stories(store["items"], settings)
+    secs = sections(settings)
     out = site_dir(settings)
     out.mkdir(parents=True, exist_ok=True)
     for old in out.glob("????-??-??.html"):
@@ -711,10 +745,15 @@ def cmd_render(args):
     generated = iso(now_utc())
 
     def page(day):
+        entries = by_day.get(day, [])
         data = {"day": day, "days": day_list, "areas": areas, "generated": generated,
                 "mode": settings["general"]["summary_mode"],
-                "items": by_day.get(day, []),
-                "digest": day_digest(day, by_day.get(day, []), primary_of) if day else None}
+                "items": entries,
+                "sections": [{"id": sid, "label": label, "areas": sorted(a) if a else None,
+                              "tab": settings.get("sections", {}).get(sid, {}).get("tab") or label,
+                              "digest": day_digest(day, sid, secs, [e for e in entries if e["section"] == sid],
+                                                   primary_of) if day else None}
+                             for sid, label, a in secs]}
         payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
         return template.replace("/*__DATA__*/null", payload)
 

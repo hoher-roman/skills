@@ -175,8 +175,8 @@ name = "Hacker News"
 url = "https://news.ycombinator.com/rss"
 lang = "en"
 region = "Svet"
-group = "Tech a veda"
-area = "technologie"
+group = "IT"
+area = "programovanie"
 
 [[source]]
 id = "nature"
@@ -204,3 +204,157 @@ lang = "sk"
 region = "Slovensko"
 group = "Tech a veda"
 area = "technologie"
+
+# ---- IT: programming, AI, cloud, security. `area` is only a hint for the script mode;
+# whether a story is in the IT column depends on its area, set by Claude from its content.
+
+[[source]]
+id = "infoq"
+name = "InfoQ"
+url = "https://www.infoq.com/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "programovanie"
+
+[[source]]
+id = "thenewstack"
+name = "The New Stack"
+url = "https://thenewstack.io/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "cloud"
+
+[[source]]
+id = "githubblog"
+name = "GitHub Blog"
+url = "https://github.blog/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "programovanie"
+
+[[source]]
+id = "lobsters"
+name = "Lobsters"
+url = "https://lobste.rs/rss"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "programovanie"
+
+[[source]]
+id = "simonwillison"
+name = "Simon Willison"
+url = "https://simonwillison.net/atom/entries/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "thedecoder"
+name = "The Decoder"
+url = "https://the-decoder.com/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "mittrai"
+name = "MIT Technology Review (AI)"
+url = "https://www.technologyreview.com/topic/artificial-intelligence/feed"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "openai"
+name = "OpenAI News"
+url = "https://openai.com/news/rss.xml"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "googleai"
+name = "Google AI blog"
+url = "https://blog.google/technology/ai/rss/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "huggingface"
+name = "Hugging Face blog"
+url = "https://huggingface.co/blog/feed.xml"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "ai"
+
+[[source]]
+id = "awsnews"
+name = "AWS News Blog"
+url = "https://aws.amazon.com/blogs/aws/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "cloud"
+
+[[source]]
+id = "azureblog"
+name = "Azure Blog"
+url = "https://azure.microsoft.com/en-us/blog/feed/"
+lang = "en"
+region = "Svet"
+group = "IT"
+area = "cloud"
+
+[[source]]
+id = "theregister"
+name = "The Register"
+url = "https://www.theregister.com/headlines.atom"
+lang = "en"
+region = "Svet"
+group = "IT"
+max_items = 25
+
+[[source]]
+id = "rootcz"
+name = "Root.cz"
+url = "https://www.root.cz/rss/clanky/"
+lang = "cs"
+region = "Česko"
+group = "IT"
+area = "programovanie"
+
+[[source]]
+id = "zdrojak"
+name = "Zdroják"
+url = "https://www.zdrojak.cz/feed/"
+lang = "cs"
+region = "Česko"
+group = "IT"
+area = "programovanie"
+
+[[source]]
+id = "lupacz"
+name = "Lupa.cz"
+url = "https://www.lupa.cz/rss/clanky/"
+lang = "cs"
+region = "Česko"
+group = "IT"
+
+[[source]]
+id = "dslsk"
+name = "DSL.sk"
+url = "https://www.dsl.sk/export/rss_articles.php"
+lang = "sk"
+region = "Slovensko"
+group = "IT"

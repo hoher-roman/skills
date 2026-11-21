@@ -1,5 +1,5 @@
 # Settings of the /news skill. Sources are in the other .toml files of this folder,
-# one file per technology: rss.toml, sitemap.toml, html.toml.
+# one file per technology: rss.toml, sitemap.toml, pages.toml, html.toml.
 
 [general]
 # How the short texts are made:
@@ -29,7 +29,21 @@ model = "sonnet"
 batch_size = 40
 parallel = 3
 
+# Sections are the columns of the overview, side by side (one under another on small screens).
+# Each has its own summary of the day (`label` is its heading) and its own tab with all its news (`tab`). A section takes the stories of its `areas`;
+# the section without `areas` takes all the others. The order here is the order of the columns.
+
+[sections.main]
+label = "Správy"
+tab = "Svetové správy"
+
+[sections.it]
+label = "IT"
+tab = "IT správy"
+areas = ["ai", "programovanie", "cloud", "bezpecnost"]
+
 # Areas of the news. `label` is shown in the overview, `color` is its tag color.
+# `description` (optional) tells Claude what belongs to the area, when the label alone is not clear.
 # `keywords` are used only by the script (summary_mode = "script", or before Claude summarizes):
 # an area wins when a word of the headline, the source's categories or the article URL starts with one of them
 # (lowercase, without diacritics). Claude chooses the area by meaning.
@@ -47,7 +61,32 @@ keywords = ["ekonom", "econom", "biznis", "business", "financ", "trh", "market",
 [areas.technologie]
 label = "Technológie"
 color = "#7a52cc"
-keywords = ["tech", "ai", "umela-inteligencia", "inteligenc", "softver", "software", "aplikac", "app", "internet", "kyber", "cyber", "hack", "smartfon", "smartphone", "iphone", "android", "apple", "google", "microsoft", "nvidia", "openai", "cip", "chip", "pocitac", "computer", "robot", "elektromobil", "tesla", "gaming", "hry", "zive"]
+description = "spotrebná elektronika a hardvér, mobily, počítače, čipy, hry, telekomunikácie, elektromobily, roboty a vesmírna technika; softvér, AI, cloud a kybernetická bezpečnosť patria do oblastí IT"
+keywords = ["tech", "smartfon", "smartphone", "iphone", "android", "apple", "samsung", "nvidia", "cip", "chip", "pocitac", "computer", "notebook", "laptop", "robot", "elektromobil", "tesla", "gaming", "hry", "konzol", "playstation", "xbox", "telekom", "5g", "zive"]
+
+[areas.ai]
+label = "AI"
+color = "#c0399b"
+description = "umelá inteligencia: modely, výskum, nástroje, firmy AI, regulácia AI"
+keywords = ["ai", "umela-inteligencia", "inteligenc", "artificial-intelligence", "llm", "openai", "anthropic", "chatgpt", "gemini", "claude", "copilot", "deepmind", "hugging", "neural", "machine-learning", "strojove"]
+
+[areas.programovanie]
+label = "Programovanie"
+color = "#2f8f83"
+description = "vývoj softvéru: jazyky, frameworky, nástroje pre vývojárov, open source, architektúra, DevOps"
+keywords = ["programov", "programming", "developer", "vyvojar", "software", "softver", "open-source", "opensource", "github", "python", "java", "javascript", "typescript", "rust", "golang", "dotnet", "net", "linux", "kernel", "compiler", "framework", "api", "devops", "database", "databaz"]
+
+[areas.cloud]
+label = "Cloud"
+color = "#3f86c9"
+description = "cloud a infraštruktúra: AWS, Azure, Google Cloud, dátové centrá, Kubernetes, siete a výpadky služieb"
+keywords = ["cloud", "aws", "amazon-web", "azure", "kubernetes", "k8s", "docker", "kontajner", "container", "serverless", "lambda", "datacent", "datove-centr", "infrastruktur", "infrastructure", "outage", "vypadok"]
+
+[areas.bezpecnost]
+label = "Kyberbezpečnosť"
+color = "#b5442f"
+description = "kybernetická bezpečnosť: útoky, úniky dát, zraniteľnosti, ransomvér, ochrana súkromia"
+keywords = ["kyber", "cyber", "security", "bezpecnost", "hack", "ransom", "malware", "zranitel", "vulnerab", "exploit", "phishing", "unik-dat", "breach", "cve", "patch"]
 
 [areas.veda]
 label = "Veda"

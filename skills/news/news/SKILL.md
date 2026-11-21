@@ -26,7 +26,7 @@ Below this is written as `news.py <command>`. It needs only Python 3.11+; on Lin
 Run `news.py config`. It creates the config on the first run and prints `config_dir`, `summary_mode`, the model and how many sources each technology has.
 
 On the first run (`first_run: true`) tell the user in a few lines:
-- the config is in `config_dir`: `settings.toml` (mode, time window, areas) and one file per technology of getting news: `rss.toml`, `sitemap.toml`, `pages.toml`, `html.toml`, each a list of `[[source]]` entries that can be edited, turned off with `enabled = false` or added
+- the config is in `config_dir`: `settings.toml` (mode, time window, sections and areas) and one file per technology of getting news: `rss.toml`, `sitemap.toml`, `pages.toml`, `html.toml`, each a list of `[[source]]` entries that can be edited, turned off with `enabled = false` or added
 - the mode is `claude` (Slovak summaries by Claude) and it can be switched to `script` (no AI, perex of the source)
 - summaries are written by subagents on the model from `settings.toml` (`sonnet` by default)
 
@@ -58,17 +58,17 @@ Run `news.py fetch`. Tell the user in one or two lines how many new items came f
 
 ## Phase 4: Summary of the day (only when `summary_mode` is `claude`)
 
-Run `news.py digest`. `Nothing to do.` means go to phase 5. Otherwise it prints one `Digest: <path>` line per day that needs a new summary of the day (a day without one, or one that has grown since).
+Run `news.py digest`. `Nothing to do.` means go to phase 5. Otherwise it prints one `Digest: <path>  (<day> <section>, …)` line per day and section (column of the overview: `Správy`, `IT`) that needs a new summary of the day (one without it, or one that has grown since).
 
-Start one subagent per day with the Agent tool, all at once: `subagent_type` general-purpose, `model` from `config` (leave it out for `inherit`), description `news digest <day>`, and the prompt:
+Start one subagent per `Digest:` line with the Agent tool, at most `parallel` from `config` at once: `subagent_type` general-purpose, `model` from `config` (leave it out for `inherit`), description `news digest <day> <section>`, and the prompt:
 
 > Write the summary of the day from `<absolute path of the input file>`. Read `<absolute path of DIGEST.md>` and follow it exactly. Reply with only the result line from its step 6.
 
-Do not read the input or the result yourself. A day whose subagent failed keeps its previous summary (or the automatic selection) and is offered again by the next `/news`.
+Do not read the input or the result yourself. A summary whose subagent failed keeps its previous summary (or the automatic selection) and is offered again by the next `/news`.
 
 ## Phase 5: The overview
 
-Run `news.py render --open`. It writes the page and opens it in the default browser. Every day has two tabs: **Prehľad dňa** (the summary of the day, shown first; in `script` mode or before Claude wrote it, the stories most sources report) and **Všetky správy** with the filters.
+Run `news.py render --open`. It writes the page and opens it in the default browser. The page of a day has a column per section of `settings.toml` (`Správy` and `IT`, side by side on a wide screen, one under another on a small one; a story is in the column of its area) and tabs: **Prehľad dňa** (the summaries of the day of all columns side by side, shown first; in `script` mode or before Claude wrote it, the stories most sources report), then one tab per section with all its news and its filters (**Svetové správy**, **IT správy**).
 
 Tell the user in two or three lines: the `Page:` link as a clickable link, how many stories the latest day has, and that the summary of the day is the first tab of the page. Do not list the stories in the chat.
 
