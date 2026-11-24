@@ -4,7 +4,7 @@ description: Short overview of current news from configured internet sources (Sl
 argument-hint: "[nothing for the overview | \"skript\" without AI | \"zdroje\" | \"pridaj zdroj <url>\" | \"odober zdroj <name>\"]"
 ---
 
-Give the user an overview of current news, or manage its sources, as `$ARGUMENTS` asks. This file is the procedure; [SUMMARIZE.md](SUMMARIZE.md) is how one batch of news is summarized and [DIGEST.md](DIGEST.md) how the summary of the day is written.
+Give the user an overview of current news, or manage its sources, as `$ARGUMENTS` asks. This file is the procedure; [SUMMARIZE.md](SUMMARIZE.md) is how one batch of news is summarized, [MERGE.md](MERGE.md) how reports of the same event are found and [DIGEST.md](DIGEST.md) how the summary of the day is written.
 
 ## Rules
 
@@ -55,6 +55,11 @@ Run `news.py fetch`. Tell the user in one or two lines how many new items came f
 
    Keep at most `Parallel` running at once; start the next batch when one finishes. Do not read the batches or results yourself. Report each finished batch in one short line (`batch-03: 40 summaries`).
 4. A batch whose subagent failed can be started once more. What is still left after that stays without a summary and is offered by the next `/news`.
+5. **The same event from several sources.** When the summaries are done (also when there was nothing to summarize), run `news.py merge`. It compares the Slovak summaries of the stories not compared yet with the stories of the last two days and prints candidate pairs that may report the same event, in batches (`Merge: <path>`). `Nothing to do.` or `No candidate pairs.` means go to phase 4. Otherwise start one subagent per batch, at most `Parallel` at once, the same way as above with description `news <merge-NN>` and the prompt:
+
+   > Decide the pairs of the batch `<absolute path of merge-NN.json>`. Read `<absolute path of MERGE.md>` and follow it exactly. Reply with only the result line from its step 5.
+
+   The confirmed pairs become one story with several sources. Report the batches in one line together (`merge: 12 stories joined`). A failed batch is offered again by the next `/news`.
 
 ## Phase 4: Summary of the day (only when `summary_mode` is `claude`)
 

@@ -9,6 +9,8 @@ Commands:
   pending                                             writes batches of items waiting for a Claude summary
   apply   <result.json>                               stores summaries written for a batch
   list    [--day YYYY-MM-DD] [--summarized]           stories of a day (default the latest) as text
+  merge                                               writes pairs of stories that may report the same event
+  merge-apply <result.json>                           joins the pairs Claude confirmed as one story
   digest                                              writes the input for the summary of the day, when due
   digest-apply <result.json>                          stores a summary of the day
   render  [--open]                                    writes the HTML overview
@@ -19,7 +21,9 @@ or NEWS_HOME). Requires only Python 3.11+.
 
 import argparse
 import hashlib
+import itertools
 import json
+import math
 import os
 import re
 import shutil
@@ -531,6 +535,154 @@ def cmd_apply(args):
     print(f"Still waiting for summary: {left}")
 
 
+# ---------------------------------------------------------------- the same event from several sources
+
+MERGE_DIR = HOME / "merge"
+MERGE_HOURS = 48          # stories further apart than this are never the same event
+MERGE_THRESHOLD = 0.22    # weighted share of common summary words that makes a candidate pair
+MERGE_PAIRS = 120         # candidate pairs per subagent
+_MERGE_STOP = set("""ktory ktora ktore ktori ktoreho ktorej ktorych ktorym ktorom podla tento tato toto tieto
+jeho jeja ich jej sme som bude budu bola bolo boli mali malo mala maju moze mozu este aj ale alebo pretoze kedze
+pocas medzi okrem velmi viac menej tisic tisice milion milionov miliard miliardy prvy prva prve druhy roka roku
+rokoch dni den dna tyzdna tyzden mesiac hodin hodiny ludi ludia novy nova nove podla uviedol uviedla tvrdi
+povedal povedala oznamil oznamila""".split())
+
+
+def summary_words(text):
+    return {w for w in _WORD.findall(fold(text)) if (len(w) >= 4 or w.isdigit()) and w not in _MERGE_STOP}
+
+
+def merge_candidates(items, settings):
+    """Pairs of summarized stories that may report the same event, by the rare words their Slovak summaries
+    share. Only pairs with a story not compared yet. Returns ([(score, id_a, id_b)], ids compared now)."""
+    primary_of = stories(items, settings)
+    now = now_utc()
+    since = now - timedelta(hours=settings["general"]["window_hours"] + MERGE_HOURS)
+    prim = [i for i in items.values()
+            if primary_of[i["id"]] == i["id"] and i.get("ai") and from_iso(i["published"]) >= since]
+    fresh = {i["id"] for i in prim if not i.get("merge_checked")}
+    ws = {i["id"]: summary_words(i["ai"]["summary"]) for i in prim}
+    df = {}
+    for s in ws.values():
+        for w in s:
+            df[w] = df.get(w, 0) + 1
+    n = max(len(prim), 2)
+    idf = {w: math.log(n / c) for w, c in df.items()}
+    index = {}
+    for iid, s in ws.items():
+        for w in s:
+            if df[w] <= 30:  # words in many stories say nothing about the event
+                index.setdefault(w, []).append(iid)
+    shared = {}
+    for ids in index.values():
+        for a, b in itertools.combinations(sorted(ids), 2):
+            if a in fresh or b in fresh:
+                shared[(a, b)] = shared.get((a, b), 0) + 1
+    out = []
+    for (a, b), count in shared.items():
+        if count < 2:
+            continue
+        ta, tb = from_iso(items[a]["published"]), from_iso(items[b]["published"])
+        if abs((ta - tb).total_seconds()) > MERGE_HOURS * 3600:
+            continue
+        common = sum(idf[w] for w in ws[a] & ws[b])
+        score = common / max(min(sum(idf[w] for w in ws[a]), sum(idf[w] for w in ws[b])), 1e-9)
+        if score >= MERGE_THRESHOLD:
+            out.append((round(score, 3), a, b))
+    out.sort(reverse=True)
+    return out, sorted(fresh)
+
+
+def cmd_merge(args):
+    ensure_config()
+    settings = load_settings()
+    store = load_store()
+    items = store["items"]
+    pairs, compared = merge_candidates(items, settings)
+    if MERGE_DIR.exists():
+        shutil.rmtree(MERGE_DIR)
+    if not compared:
+        print("Nothing to do.")
+        return
+    MERGE_DIR.mkdir(parents=True)
+    chunks = [pairs[i:i + MERGE_PAIRS] for i in range(0, len(pairs), MERGE_PAIRS)] or [[]]
+    print(f"Candidate pairs: {len(pairs)}  Stories compared: {len(compared)}  "
+          f"Batches: {len(chunks) if pairs else 0}  Model: {settings['claude']['model']}")
+    for n, chunk in enumerate(chunks, 1):
+        path = MERGE_DIR / f"merge-{n:02d}.json"
+        ids = sorted({i for _, a, b in chunk for i in (a, b)})
+        data = {
+            "result_file": str(path.with_name(f"merge-{n:02d}.result.json")),
+            "compared": ids,
+            "stories": [{"id": i, "source": items[i]["source_name"],
+                         "time": from_iso(items[i]["published"]).astimezone().strftime("%d.%m. %H:%M"),
+                         "text": items[i]["ai"]["summary"]} for i in ids],
+            "pairs": [[a, b] for _, a, b in chunk],
+        }
+        head = json.dumps({k: v for k, v in data.items() if k not in ("stories", "pairs")}, ensure_ascii=False)[:-1]
+        body = (', "stories": [\n' + ",\n".join(json.dumps(s, ensure_ascii=False) for s in data["stories"])
+                + '\n], "pairs": [\n' + ",\n".join(json.dumps(p) for p in data["pairs"]) + "\n]}\n")
+        path.write_text(head + body, encoding="utf-8")
+        if pairs:
+            print(f"Merge: {path}  ({len(chunk)} pairs)")
+    # stories without a candidate pair are compared now; the others when their batch is applied
+    in_pairs = {i for _, a, b in pairs for i in (a, b)}
+    with Lock():
+        store = load_store()
+        for i in compared:
+            if i not in in_pairs and i in store["items"]:
+                store["items"][i]["merge_checked"] = True
+        save_store(store)
+    if not pairs:
+        shutil.rmtree(MERGE_DIR)
+        print("No candidate pairs.")
+
+
+def cmd_merge_apply(args):
+    ensure_config()
+    settings = load_settings()
+    path = Path(args.result)
+    try:
+        result = json.loads(path.read_text(encoding="utf-8"))
+        batch = json.loads(path.with_name(path.name.replace(".result.json", ".json")).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        die(f"cannot read {path} or its batch: {e}")
+    asked = {tuple(sorted(p)) for p in batch["pairs"]}
+    same = [tuple(sorted(p)) for p in (result.get("same", []) if isinstance(result, dict) else result)
+            if isinstance(p, (list, tuple)) and len(p) == 2]
+    merged, skipped = 0, []
+    with Lock():
+        store = load_store()
+        items = store["items"]
+        primary_of = stories(items, settings)
+        joined = {}  # primary -> the primary it joined in this run
+
+        def root(i):
+            r = primary_of[i]
+            while r in joined:
+                r = joined[r]
+            return r
+
+        for a, b in same:
+            if (a, b) not in asked or a not in items or b not in items:
+                skipped.append(f"{a}/{b}")
+                continue
+            ra, rb = root(a), root(b)
+            if ra == rb:
+                continue
+            # the story seen later joins the one seen first
+            first, later = sorted((ra, rb), key=lambda i: (items[i]["first_seen"], items[i]["published"], i))
+            items[later]["dup_of"] = first
+            joined[later] = first
+            merged += 1
+        for i in batch.get("compared", []):
+            if i in items:
+                items[i]["merge_checked"] = True
+        save_store(store)
+    print(f"Merged: {merged}  Pairs asked: {len(asked)}  Skipped: {len(skipped)}"
+          + (f" ({', '.join(skipped[:10])})" if skipped else ""))
+
+
 # ---------------------------------------------------------------- summary of the day
 
 def sections(settings):
@@ -681,13 +833,16 @@ def build_days(settings, store):
 
     by_day = {}
     for pid, members in groups.items():
-        p = items[pid]
-        ai = p.get("ai") or next((m["ai"] for m in members if m.get("ai")), None)
-        local = from_iso(p["published"]).astimezone()
+        first = items[pid]
+        summarized = [m for m in members if m.get("ai")]
+        # shown: the member with the fullest summary (the first one seen when none has one)
+        p = max(summarized, key=lambda m: (len(m["ai"]["summary"]), m["id"] == pid)) if summarized else first
+        ai = p.get("ai")
+        local = from_iso(first["published"]).astimezone()
         entry = {
             "id": pid,
-            "time": iso(from_iso(p["published"])),
-            "dated": p.get("dated", True),
+            "time": iso(from_iso(first["published"])),
+            "dated": first.get("dated", True),
             "ai": bool(ai),
             "text": ai["summary"] if ai else script_text(p),
             "title": p["title"],
@@ -699,7 +854,7 @@ def build_days(settings, store):
             "section": "",
             "region": (ai["region"] if ai and ai.get("region") else p["region"]),
             "also": [{"source": m["source_name"], "url": m["url"], "title": m["title"]}
-                     for m in sorted(members, key=lambda m: m["published"]) if m["id"] != pid],
+                     for m in sorted(members, key=lambda m: m["published"]) if m["id"] != p["id"]],
         }
         entry["section"] = section_of(entry["area"], secs)
         by_day.setdefault(local.strftime("%Y-%m-%d"), []).append(entry)
@@ -889,6 +1044,10 @@ def main():
     p.add_argument("--only")
     p.set_defaults(fn=cmd_fetch)
     sub.add_parser("pending").set_defaults(fn=cmd_pending)
+    sub.add_parser("merge").set_defaults(fn=cmd_merge)
+    p = sub.add_parser("merge-apply")
+    p.add_argument("result")
+    p.set_defaults(fn=cmd_merge_apply)
     sub.add_parser("digest").set_defaults(fn=cmd_digest)
     p = sub.add_parser("digest-apply")
     p.add_argument("result")

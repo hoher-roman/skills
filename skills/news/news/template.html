@@ -73,6 +73,13 @@ li.item > div { min-width: 0; }
 .meta a:hover { text-decoration: underline; }
 .meta .orig { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 details.also summary { cursor: pointer; color: var(--muted); }
+.srcs { display: flex; flex-direction: column; gap: 1px; min-width: 0; width: 100%; }
+.srcs .orig { display: block; }
+.srcs details summary { cursor: pointer; color: var(--muted); }
+.srcs details[open] summary { margin-bottom: 1px; }
+.srcs details > .orig + .orig { margin-top: 1px; }
+.toggle { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; cursor: pointer; }
+.toggle .n { color: var(--muted); font-size: 12px; }
 details.also ul { margin: 4px 0 0; padding-left: 18px; }
 .empty { color: var(--muted); padding: 40px 0; text-align: center; }
 body:not(.news-tab) .news, body:not(.news-tab) .search { display: none; }
@@ -141,7 +148,9 @@ const q = { text: "" };
 // filters per column; the first column keeps the keys of the single-column page
 const key = (sid, k) => sid === MAIN ? k : `${k}.${sid}`;
 const state = Object.fromEntries(SECTIONS.map(s => [s.id, {
-  areas: new Set(store.get(key(s.id, "areas"), [])), groups: new Set(store.get(key(s.id, "groups"), [])) }]));
+  areas: new Set(store.get(key(s.id, "areas"), [])), groups: new Set(store.get(key(s.id, "groups"), [])),
+  multi: !!store.get(key(s.id, "multi"), false) }]));
+const srcCount = it => new Set([it.source, ...it.also.map(o => o.source)]).size;
 const sectionItems = sid => items.filter(it => (it.section || MAIN) === sid);
 const areaInfo = id => (DATA.areas[id] || { label: id, color: "#7b8088" });
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -192,6 +201,7 @@ function columns() {
           <div class="filters" id="areas-${esc(s.id)}"></div>
           <div class="side-label" id="groups-label-${esc(s.id)}">Zdroje</div>
           <div class="filters" id="groups-${esc(s.id)}"></div>
+          <label class="toggle"><input type="checkbox" id="multi-${esc(s.id)}"> Len správy z 2+ zdrojov <span class="n" id="multi-n-${esc(s.id)}"></span></label>
         </aside>
         <div class="news-main">
           <div class="stats" id="stats-${esc(s.id)}"></div>
@@ -209,6 +219,7 @@ function columns() {
 function matches(it, st, skip) {
   if (skip !== "area" && st.areas.size && !st.areas.has(it.area)) return false;
   if (skip !== "group" && st.groups.size && !st.groups.has(it.group)) return false;
+  if (skip !== "multi" && st.multi && srcCount(it) < 2) return false;
   if (q.text) {
     const hay = fold([it.text, it.title, it.source, it.region, areaInfo(it.area).label].join(" "));
     if (!q.text.split(/\s+/).every(w => hay.includes(w))) return false;
@@ -254,6 +265,10 @@ function draw() {
     const groups = [...new Set(its.map(i => i.group).filter(Boolean))];
     chips(s.id, "groups", groups.length > 1 || st.groups.size ? groups : [], g => `${esc(g)} <span class="n">${groupCount[g] || 0}</span>`);
 
+    const cb = $(`multi-${s.id}`);
+    cb.checked = st.multi;
+    cb.onchange = () => { st.multi = cb.checked; store.set(key(s.id, "multi"), st.multi); draw(); };
+    $(`multi-n-${s.id}`).textContent = its.filter(it => srcCount(it) >= 2 && matches(it, st, "multi")).length;
     const shown = its.filter(it => matches(it, st));
     $(`list-${s.id}`).innerHTML = shown.map(it => row(it)).join("") ||
       `<li class="empty">${its.length ? "Filtru nezodpovedá žiadna správa." : "Pre tento deň tu nie sú žiadne správy."}</li>`;
@@ -309,14 +324,24 @@ function row(it, digestText) {
   const body = digestText ? `<p class="text">${esc(digestText)}</p>` : it.ai
     ? `<p class="text">${esc(it.text)}</p>`
     : `<p class="text"><a class="headline" href="${url}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>${it.text ? ` <span class="perex">${esc(it.text)}</span>` : ""}</p>`;
-  const also = it.also.length ? `<details class="also"><summary>+${it.also.length} ${plural(it.also.length, "ďalší zdroj", "ďalšie zdroje", "ďalších zdrojov")}</summary><ul>${
-    it.also.map(o => `<li><a href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener noreferrer">${esc(o.source)}</a>: ${esc(o.title)}</li>`).join("")}</ul></details>` : "";
+  // one source: "Source: headline"; several: every source by name, each a link to its article
+  let meta;
+  if (!it.also.length) {
+    meta = `<a class="orig" href="${url}" target="_blank" rel="noopener noreferrer" title="${esc(it.title)}">${esc(it.source)}${it.ai || digestText ? ": " + esc(it.title) : ""} ↗</a>`;
+  } else {
+    // every article as "Source: headline", one under another; long lists show the first few
+    const all = [{ source: it.source, url: it.url, title: it.title }, ...it.also];
+    const line = o => `<a class="orig" href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener noreferrer" title="${esc(o.title)}">${esc(o.source)}: ${esc(o.title)} ↗</a>`;
+    const first = all.length > 5 ? all.slice(0, 4) : all, rest = all.length > 5 ? all.slice(4) : [];
+    meta = `<span class="srcs">${first.map(line).join("")}${
+      rest.length ? `<details><summary>+${rest.length} ${plural(rest.length, "ďalší zdroj", "ďalšie zdroje", "ďalších zdrojov")}</summary>${rest.map(line).join("")}</details>` : ""}</span>`;
+  }
   return `<li class="item">
     <div class="time" title="${it.dated ? esc(new Date(it.time).toLocaleString("sk-SK")) : "Zdroj neuvádza čas; stiahnuté " + esc(new Date(it.time).toLocaleString("sk-SK"))}">${it.dated ? fmtTime(it.time) : "bez času"}</div>
     <div>
       <div class="tags"><span class="tag" style="background:${esc(a.color)}">${esc(a.label)}</span>${it.region ? `<span class="tag region">${esc(it.region)}</span>` : ""}</div>
       ${body}
-      <div class="meta"><a class="orig" href="${url}" target="_blank" rel="noopener noreferrer" title="${esc(it.title)}">${esc(it.source)}${it.ai || digestText ? ": " + esc(it.title) : ""} ↗</a>${also}</div>
+      <div class="meta">${meta}</div>
     </div>
   </li>`;
 }
