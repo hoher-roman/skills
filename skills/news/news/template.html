@@ -20,7 +20,7 @@ html { overflow-y: scroll; scrollbar-gutter: stable; }
 html, body { margin: 0; background: var(--bg); color: var(--text);
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 a { color: inherit; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px 48px; }
+.wrap { max-width: 1360px; margin: 0 auto; padding: 0 16px 48px; }
 header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 14px 0 10px; border-bottom: 1px solid var(--line); }
 .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
@@ -89,12 +89,18 @@ body.news-tab .cols { grid-template-columns: 1fr !important; }
 .side-label { font-size: 12px; color: var(--muted); margin: 14px 0 -4px; text-transform: uppercase; letter-spacing: .04em; }
 .side .search { max-width: none; width: 100%; margin: 14px 0 0; }
 @media (min-width: 1000px) {
-  .news { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0 40px; align-items: start; }
+  .news { display: grid; grid-template-columns: minmax(0, 880px) 300px; justify-content: space-between; gap: 0 40px; align-items: start; }
   .side { grid-column: 2; grid-row: 1; position: sticky; top: var(--head, 110px); padding-bottom: 16px;
     max-height: calc(100vh - var(--head, 110px)); overflow-y: auto; }
   .news-main { grid-column: 1; grid-row: 1; min-width: 0; }
 }
 .intro { font-size: 17px; line-height: 1.6; margin: 14px 0 8px; }
+/* three or more columns side by side: narrower columns, so the numbered stories drop the time */
+@media (min-width: 1000px) {
+  .many .intro { font-size: 16px; }
+  .many ol.top li.item { grid-template-columns: 28px 1fr; }
+  .many ol.top li.item .time { display: none; }
+}
 ol.top { counter-reset: top; }
 ol.top li.item { grid-template-columns: 28px 52px 1fr; }
 ol.top li.item::before { counter-increment: top; content: counter(top); font-size: 20px; font-weight: 650;
@@ -109,6 +115,8 @@ footer { color: var(--muted); font-size: 12px; margin-top: 24px; }
   .day { margin-left: 0; width: 100%; }
   .day select { flex: 1; min-width: 0; }
   .search { max-width: none; }
+  .tabs { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .tab { white-space: nowrap; flex: none; }
 }
 </style>
 </head>
@@ -149,6 +157,7 @@ const q = { text: "" };
 const key = (sid, k) => sid === MAIN ? k : `${k}.${sid}`;
 const state = Object.fromEntries(SECTIONS.map(s => [s.id, {
   areas: new Set(store.get(key(s.id, "areas"), [])), groups: new Set(store.get(key(s.id, "groups"), [])),
+  regions: new Set(store.get(key(s.id, "regions"), [])),
   multi: !!store.get(key(s.id, "multi"), false) }]));
 const srcCount = it => new Set([it.source, ...it.also.map(o => o.source)]).size;
 const sectionItems = sid => items.filter(it => (it.section || MAIN) === sid);
@@ -190,6 +199,7 @@ function columns() {
   $("wrap").classList.toggle("multi", multi);
   $("wrap").classList.toggle("single", !multi);
   $("cols").style.setProperty("--n", SECTIONS.length);
+  $("cols").classList.toggle("many", SECTIONS.length >= 3);
   $("cols").innerHTML = SECTIONS.map(s => `
     <section class="col" id="col-${esc(s.id)}">
       <div class="col-head"><h2>${esc(s.label)}</h2><span class="n" id="count-${esc(s.id)}"></span></div>
@@ -199,6 +209,9 @@ function columns() {
           <div class="side-search" id="search-${esc(s.id)}"></div>
           <div class="side-label">Oblasti</div>
           <div class="filters" id="areas-${esc(s.id)}"></div>
+${s.region_filter ? `
+          <div class="side-label" id="regions-label-${esc(s.id)}">Regióny</div>
+          <div class="filters" id="regions-${esc(s.id)}"></div>` : ""}
           <div class="side-label" id="groups-label-${esc(s.id)}">Zdroje</div>
           <div class="filters" id="groups-${esc(s.id)}"></div>
           <label class="toggle"><input type="checkbox" id="multi-${esc(s.id)}"> Len správy z 2+ zdrojov <span class="n" id="multi-n-${esc(s.id)}"></span></label>
@@ -219,6 +232,7 @@ function columns() {
 function matches(it, st, skip) {
   if (skip !== "area" && st.areas.size && !st.areas.has(it.area)) return false;
   if (skip !== "group" && st.groups.size && !st.groups.has(it.group)) return false;
+  if (skip !== "region" && st.regions.size && !st.regions.has(it.region)) return false;
   if (skip !== "multi" && st.multi && srcCount(it) < 2) return false;
   if (q.text) {
     const hay = fold([it.text, it.title, it.source, it.region, areaInfo(it.area).label].join(" "));
@@ -231,7 +245,8 @@ function chips(sid, kind, values, render) {
   const box = $(`${kind}-${sid}`);
   const set = state[sid][kind];
   box.innerHTML = "";
-  if (kind === "groups") $(`groups-label-${sid}`).style.display = values.length ? "" : "none";
+  const label = $(`${kind}-label-${sid}`);
+  if (label) label.style.display = values.length ? "" : "none";
   for (const v of values) {
     const b = document.createElement("button");
     b.className = "chip" + (set.has(v) ? " on" : "");
@@ -262,6 +277,18 @@ function draw() {
     const areaIds = Object.keys(DATA.areas).filter(a => areaCount[a] || st.areas.has(a));
     chips(s.id, "areas", areaIds, id =>
       `<span class="dot" style="background:${esc(areaInfo(id).color)}"></span>${esc(areaInfo(id).label)} <span class="n">${areaCount[id] || 0}</span>`);
+    if (s.region_filter) {
+      // the most frequent regions of the section (and the chosen ones), most stories first
+      const regionCount = {}, all = {};
+      for (const it of its) {
+        if (!it.region) continue;
+        all[it.region] = (all[it.region] || 0) + 1;
+        if (matches(it, st, "region")) regionCount[it.region] = (regionCount[it.region] || 0) + 1;
+      }
+      const regions = Object.keys(all).sort((x, y) => all[y] - all[x] || x.localeCompare(y, "sk"))
+        .filter((r, i) => i < 12 || st.regions.has(r));
+      chips(s.id, "regions", regions, r => `${esc(r)} <span class="n">${regionCount[r] || 0}</span>`);
+    }
     const groups = [...new Set(its.map(i => i.group).filter(Boolean))];
     chips(s.id, "groups", groups.length > 1 || st.groups.size ? groups : [], g => `${esc(g)} <span class="n">${groupCount[g] || 0}</span>`);
 
@@ -285,6 +312,8 @@ function tab(name) {
   document.body.classList.toggle("news-tab", news);
   document.querySelectorAll(".col").forEach(c => c.classList.toggle("active", c.id === "col-" + name));
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  const onTab = document.querySelector(".tab.on");  // on a phone the tabs scroll sideways
+  if (onTab) onTab.parentNode.scrollLeft = onTab.offsetLeft - onTab.parentNode.offsetLeft - 16;
   if (news) $(`search-${name}`).appendChild($("q"));  // one search box, in the panel of the open tab
   document.documentElement.style.setProperty("--head", document.querySelector("header").offsetHeight + "px");
   $("tabs").style.display = hasDigest || SECTIONS.length > 1 ? "" : "none";

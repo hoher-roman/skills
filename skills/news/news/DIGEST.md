@@ -2,7 +2,7 @@
 
 You get the path of an input file (`<day>.input.json`) written by `news.py digest`. Write the summary of that day: a short introduction and the most important stories. It is shown first on the page of the day, above all the news.
 
-The overview has columns (sections), each with its own summary of the day; the input holds the stories of one of them. `section` is its name: `Správy` for the general news, or a topic such as `IT` (programming, AI, cloud, cyber security). Choose and write for the readers of that section: for `IT`, what matters to people who build and run software.
+The overview has columns (sections), each with its own summary of the day; the input holds the stories of one of them. `section` is its name: `Správy` for the general news, or a topic such as `IT` (programming, AI, cloud, cyber security) or `Konflikty` (wars, terrorism, cyber attacks of states, hybrid threats, unrest, ceasefires and talks, defense). Choose and write for the readers of that section: for `IT`, what matters to people who build and run software; for `Konflikty`, where it was fought and who attacked whom, by severity (deaths, escalation, new fronts, turns in talks), covering the main conflicts of the day rather than many stories of one front.
 
 The input holds `day`, `section`, `language` (`sk` = Slovak), `areas` (`id: label`), `result_file` and `stories`. Each story has `id`, `time` (local, may be empty), `area`, `region`, `sources` (every source that reports it; the first one is the main one) and `text` (its summary).
 
@@ -17,7 +17,7 @@ Read the input file with the Read tool. It has one story per line and can have s
 Choose the **5 to 8 most important stories** of the day:
 - significance first: consequences for many people, decisions of governments and institutions, wars and disasters, big economic moves, important findings
 - how many sources report it (`sources`) is a strong hint of importance
-- a mix that matches the day: in `Správy` Slovakia, the world, and economy or science when something important happened there; in `IT` the areas of the section; do not fill places with minor stories just for the mix
+- a mix that matches the day: in `Správy` Slovakia, the world, and economy or science when something important happened there; in `IT` and `Konflikty` the areas and the regions of the section; do not fill places with minor stories just for the mix
 - a section with few stories gets fewer: at least 3, or all of them when there are fewer
 - one story per event: when several stories are about the same event, choose the one with more sources and mention the rest in its text if useful
 

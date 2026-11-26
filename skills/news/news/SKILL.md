@@ -73,7 +73,7 @@ Do not read the input or the result yourself. A summary whose subagent failed ke
 
 ## Phase 5: The overview
 
-Run `news.py render --open`. It writes the page and opens it in the default browser. The page of a day has a column per section of `settings.toml` (`Správy` and `IT`, side by side on a wide screen, one under another on a small one; a story is in the column of its area) and tabs: **Prehľad dňa** (the summaries of the day of all columns side by side, shown first; in `script` mode or before Claude wrote it, the stories most sources report), then one tab per section with all its news and its filters (**Svetové správy**, **IT správy**).
+Run `news.py render --open`. It writes the page and opens it in the default browser. The page of a day has a column per section of `settings.toml` (`Správy`, `IT` and `Konflikty`, side by side on a wide screen, one under another on a small one; a story is in the column of its area) and tabs: **Prehľad dňa** (the summaries of the day of all columns side by side, shown first; in `script` mode or before Claude wrote it, the stories most sources report), then one tab per section with all its news and its filters (**Svetové správy**, **IT správy**, **Konflikty**, which also filters by region).
 
 Tell the user in two or three lines: the `Page:` link as a clickable link, how many stories the latest day has, and that the summary of the day is the first tab of the page. Do not list the stories in the chat.
 

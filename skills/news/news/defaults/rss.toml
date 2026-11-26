@@ -358,3 +358,80 @@ url = "https://www.dsl.sk/export/rss_articles.php"
 lang = "sk"
 region = "Slovensko"
 group = "IT"
+
+# ---- Konflikty: wars, terrorism, state cyber attacks, defense. Whether a story is in the
+# Konflikty column depends on its area, set by Claude from its content, not on the source.
+
+[[source]]
+id = "kyivindependent"
+name = "Kyiv Independent"
+url = "https://kyivindependent.com/news-archive/rss/"
+lang = "en"
+region = "Ukrajina"
+group = "Konflikty"
+
+[[source]]
+id = "timesofisrael"
+name = "Times of Israel"
+url = "https://www.timesofisrael.com/feed/"
+lang = "en"
+region = "Izrael"
+group = "Konflikty"
+max_items = 25
+
+[[source]]
+id = "almonitor"
+name = "Al-Monitor"
+url = "https://www.al-monitor.com/rss"
+lang = "en"
+region = "Blízky východ"
+group = "Konflikty"
+max_items = 20
+
+[[source]]
+id = "longwarjournal"
+name = "Long War Journal"
+url = "https://www.longwarjournal.org/feed"
+lang = "en"
+region = "Svet"
+group = "Konflikty"
+
+[[source]]
+id = "crisisgroup"
+name = "Crisis Group"
+url = "https://www.crisisgroup.org/rss.xml"
+lang = "en"
+region = "Svet"
+group = "Konflikty"
+
+[[source]]
+id = "defensenews"
+name = "Defense News"
+url = "https://www.defensenews.com/arc/outboundfeeds/rss/"
+lang = "en"
+region = "Svet"
+group = "Konflikty"
+
+[[source]]
+id = "breakingdefense"
+name = "Breaking Defense"
+url = "https://breakingdefense.com/feed/"
+lang = "en"
+region = "Svet"
+group = "Konflikty"
+
+[[source]]
+id = "therecord"
+name = "The Record"
+url = "https://therecord.media/feed"
+lang = "en"
+region = "Svet"
+group = "Konflikty"
+
+[[source]]
+id = "bellingcat"
+name = "Bellingcat"
+url = "https://www.bellingcat.com/feed/"
+lang = "en"
+region = "Svet"
+group = "Konflikty"

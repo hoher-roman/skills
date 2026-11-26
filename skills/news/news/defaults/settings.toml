@@ -42,6 +42,13 @@ label = "IT"
 tab = "IT správy"
 areas = ["ai", "programovanie", "cloud", "bezpecnost"]
 
+# `region_filter = true` adds chips of the regions of the stories to the filters of the section.
+[sections.konflikty]
+label = "Konflikty"
+tab = "Konflikty"
+areas = ["konflikty", "terorizmus", "kyberutoky", "hybridne", "nepokoje", "primerie", "obrana"]
+region_filter = true
+
 # Areas of the news. `label` is shown in the overview, `color` is its tag color.
 # `description` (optional) tells Claude what belongs to the area, when the label alone is not clear.
 # `keywords` are used only by the script (summary_mode = "script", or before Claude summarizes):
@@ -85,7 +92,7 @@ keywords = ["cloud", "aws", "amazon-web", "azure", "kubernetes", "k8s", "docker"
 [areas.bezpecnost]
 label = "Kyberbezpečnosť"
 color = "#b5442f"
-description = "kybernetická bezpečnosť: útoky, úniky dát, zraniteľnosti, ransomvér, ochrana súkromia"
+description = "technická kybernetická bezpečnosť: zraniteľnosti a záplaty, ransomvér a malvér, úniky dát firiem, ochrana súkromia; útoky štátov a politicky motivované útoky patria do Kyberútokov"
 keywords = ["kyber", "cyber", "security", "bezpecnost", "hack", "ransom", "malware", "zranitel", "vulnerab", "exploit", "phishing", "unik-dat", "breach", "cve", "patch"]
 
 [areas.veda]
@@ -104,9 +111,46 @@ color = "#4c9a2a"
 keywords = ["klima", "climate", "pocasie", "pocasi", "weather", "sneh", "snez", "mraz", "povod", "flood", "sucho", "drought", "pozar", "wildfire", "emis", "uhlik", "carbon", "priroda", "nature", "prostred", "environment", "zviera", "animal", "les", "forest", "hurikan", "hurricane", "zemetras", "earthquake", "shmu"]
 
 [areas.konflikty]
-label = "Vojny a konflikty"
+label = "Boje a útoky"
 color = "#c2412d"
-keywords = ["vojn", "valk", "war", "armad", "army", "military", "vojak", "soldier", "utok", "attack", "strel", "rakete", "raket", "missile", "dron", "drone", "ukrajin", "ukraine", "rusk", "russia", "gaz", "gaza", "izrael", "israel", "hamas", "iran", "nato", "konflikt", "conflict", "terror", "bomb", "sankci", "sanction"]
+description = "ozbrojené boje a útoky vo vojnách: fronty, ostreľovanie, bombardovanie, útoky dronmi a raketami, obete"
+keywords = ["vojn", "valk", "war", "armad", "army", "military", "vojak", "soldier", "utok", "attack", "strel", "rakete", "raket", "missile", "dron", "drone", "ukrajin", "ukraine", "rusk", "russia", "gaz", "gaza", "izrael", "israel", "hamas", "iran", "konflikt", "conflict", "bomb", "ostrel", "shelling", "airstrike", "nalet"]
+
+[areas.terorizmus]
+label = "Terorizmus"
+color = "#8e2a4f"
+description = "teroristické útoky, zmarené útoky, zatýkanie a súdy s teroristami, teroristické skupiny"
+keywords = ["terror", "teror", "dzihad", "jihad", "islamsk", "isis", "al-kaid", "qaeda", "atentat"]
+
+[areas.kyberutoky]
+label = "Kyberútoky"
+color = "#6d3fa8"
+description = "kyberútoky štátov a politicky motivované útoky: na vlády, armády, kritickú infraštruktúru a voľby, štátne hackerské skupiny"
+keywords = ["kyberutok", "cyberattack", "cyber-attack", "typhoon", "apt", "statni-hacker", "state-sponsored"]
+
+[areas.hybridne]
+label = "Hybridné hrozby"
+color = "#5b6b7a"
+description = "sabotáže, drony nad letiskami a základňami, špionáž, narušenie vzdušného priestoru, dezinformačné a vplyvové kampane"
+keywords = ["sabotaz", "sabotage", "spion", "spy", "espionage", "hybrid", "dezinform", "disinform", "vzdusn"]
+
+[areas.nepokoje]
+label = "Nepokoje a prevraty"
+color = "#a0522d"
+description = "prevraty, ozbrojené nepokoje, občianske vojny, násilie pri protestoch, povstania"
+keywords = ["prevrat", "coup", "nepokoj", "unrest", "riot", "povstan", "rebel", "insurg", "junta"]
+
+[areas.primerie]
+label = "Prímerie a rokovania"
+color = "#3d8b6a"
+description = "rokovania o ukončení konfliktov, prímeria, mierové plány, výmeny zajatcov, sankcie a diplomacia okolo vojen"
+keywords = ["primeri", "ceasefire", "truce", "mierov", "peace-talks", "peace-deal", "peace-plan", "zajat", "prisoner", "sankci", "sanction"]
+
+[areas.obrana]
+label = "Zbrojenie a obrana"
+color = "#4a5d8f"
+description = "obrana a zbrojenie: dodávky zbraní, NATO, obranné rozpočty, mobilizácia, armády a zbraňové systémy mimo bojov"
+keywords = ["nato", "obran", "defen", "zbran", "weapon", "zbroj", "arms", "mobiliz", "pentagon", "stihack", "fighter-jet", "tank"]
 
 [areas.kriminalita]
 label = "Krimi a súdy"

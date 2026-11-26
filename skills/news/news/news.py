@@ -907,6 +907,7 @@ def cmd_render(args):
                 "items": entries,
                 "sections": [{"id": sid, "label": label, "areas": sorted(a) if a else None,
                               "tab": settings.get("sections", {}).get(sid, {}).get("tab") or label,
+                              "region_filter": bool(settings.get("sections", {}).get(sid, {}).get("region_filter")),
                               "digest": day_digest(day, sid, secs, [e for e in entries if e["section"] == sid],
                                                    primary_of) if day else None}
                              for sid, label, a in secs]}
