@@ -732,7 +732,8 @@ def cmd_digest(args):
     secs = sections(settings)
     by_day = build_days(settings, load_store())
     DIGEST_DIR.mkdir(parents=True, exist_ok=True)
-    for old in DIGEST_DIR.glob("*.input.json"):
+    # inputs and results of earlier runs; a leftover result would be applied as a new one
+    for old in [*DIGEST_DIR.glob("*.input.json"), *DIGEST_DIR.glob("*.result.json")]:
         old.unlink()
     due = [(d, sid, label, [e for e in by_day[d] if e["section"] == sid])
            for d in sorted(by_day, reverse=True)[:DIGEST_DAYS] for sid, label, _ in secs]
