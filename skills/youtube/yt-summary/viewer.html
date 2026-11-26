@@ -215,6 +215,22 @@
   .tabs button:hover { color: var(--text); }
   .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
   .tabs .count { font-weight: 400; color: var(--muted); }
+  /* Back to the idea or statement being played, at the free right end of the tabs. */
+  .tabs button.to-playing { margin: 0 0 0 auto; align-self: center; flex: none; font-size: .85rem; padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); white-space: nowrap; }
+  .tabs button.to-playing:hover { color: var(--accent); border-color: var(--accent); }
+  .tabs button.to-playing:disabled { opacity: .5; cursor: default; color: var(--muted); border-color: var(--border); }
+  .tabs button.to-playing[hidden] { display: none; }
+  /* Narrow screens: the tabs have no room left, so the button is in the bar instead, only its icon. */
+  .bar .to-playing { display: none; font: inherit; font-size: 1rem; height: 34px; padding: 0 10px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+  .bar .to-playing:hover { color: var(--accent); border-color: var(--accent); }
+  .bar .to-playing:disabled { opacity: .5; cursor: default; color: var(--muted); border-color: var(--border); }
+  .bar .to-playing span { display: none; }
+  @media (max-width: 600px) {
+    .tabs button.to-playing { display: none; }
+    .bar .to-playing:not([hidden]) { display: block; }
+  }
   [role="tabpanel"][hidden] { display: none; }
   @media (max-width: 1099px) {
     .video-layout { grid-template-columns: minmax(0, 1fr); }
@@ -951,10 +967,14 @@
     const noteHtml = s && s.note ? `<footer>${esc(label("regen_note_shown", {note: s.note}))}</footer>` : "";
     const descriptionHtml = v.description ? `<section><details open><summary>${esc(label("description"))}</summary>
         <div class="description">${richText(v.description)}</div></details></section>` : "";
+    // Back to the part being played: at the end of the tabs, on a narrow screen in the bar.
+    const toPlayingHtml = `<button type="button" class="to-playing" hidden${ready ? "" : " disabled"} title="${esc(label("to_playing_title"))}"
+          aria-label="${esc(label("to_playing_title"))}">◎ <span>${esc(label("to_playing"))}</span></button>`;
     app.classList.toggle("wide", Boolean(topics.length));
     app.innerHTML = `
       <div class="bar">${v.channel_id ? `<nav class="crumbs">${back}<span class="sep" aria-hidden="true">/</span>
         <a class="back" href="/c/${esc(v.channel_id)}" data-nav>${esc(v.channel || v.channel_id)}</a></nav>` : back}
+        ${s ? toPlayingHtml : ""}
         ${topics.length ? `<button type="button" class="toc-toggle" aria-controls="toc" aria-expanded="false">${esc(topicsTitle)} ▾</button>` : ""}
         ${topButtons()}</div>
       <div class="video-layout${topics.length ? "" : " no-toc"}"><div class="main">
@@ -975,6 +995,7 @@
         <button type="button" role="tab" id="tab-statements" aria-controls="panel-statements" data-tab="statements">${esc(label("statements"))}${
           v.sentences && s.statements ? ` <span class="count">(${s.statements.thoughts.length})</span>` : ""}</button>
         ${v.description ? `<button type="button" role="tab" id="tab-description" aria-controls="panel-description" data-tab="description">${esc(label("description"))}</button>` : ""}
+        ${toPlayingHtml}
       </div>
       <div role="tabpanel" class="scroller" id="panel-overview" aria-labelledby="tab-overview">
         <section>${s.context ? contextHtml(s.context, Boolean(v.sentences && s.statements))
@@ -1015,6 +1036,7 @@
       b.tabIndex = on ? 0 : -1;
       document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
     });
+    document.querySelectorAll(".to-playing").forEach(b => { b.hidden = name !== "ideas" && name !== "statements"; });
     try { localStorage.setItem("yt-summary-tab", name); } catch (e) {}
     if (name === "statements") renderStatements();
     if (before !== name) setScroll(tabScroll[name] ?? 0);
@@ -1506,7 +1528,10 @@
       player = new YT.Player("player", {
         videoId: id, playerVars: {rel: 0, modestbranding: 1},
         events: {
-          onReady: () => { ready = true; clearTimeout(playerTimer); },
+          onReady: () => {
+            ready = true; clearTimeout(playerTimer);
+            document.querySelectorAll(".to-playing").forEach(b => { b.disabled = false; });
+          },
           onError: () => { ready = false; fallback(id); },
         },
       });
@@ -1564,11 +1589,28 @@
     const target = (ideas.filter(([t]) => t <= start + 5).pop() || ideas[0] || [])[1];
     if (!target) return;
     if (document.querySelector(".tabs") && currentTab() !== "ideas") showTab("ideas");
-    const panel = target.closest(".scroller");
-    panel?.scrollTo({top: target.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - 12,
-                     behavior: document.visibilityState === "visible" ? "smooth" : "auto"});
+    scrollIntoPanel(target);
     document.querySelectorAll(".idea").forEach(el => el.classList.toggle("active", el === target));
   }
+
+  // Scrolls the tab an element is in so the element is at its top, or in its middle with `center`.
+  function scrollIntoPanel(el, center) {
+    const panel = el.closest(".scroller");
+    if (!panel) return;
+    const top = el.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop;
+    panel.scrollTo({top: center ? top - (panel.clientHeight - el.offsetHeight) / 2 : top - 12,
+                    behavior: document.visibilityState === "visible" ? "smooth" : "auto"});
+  }
+
+  // The button at the end of the tabs: back to the idea or statement being played, also after a seek in a pause.
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".to-playing") || !ready || !player) return;
+    markPlaying(player.getCurrentTime());
+    const tab = currentTab();
+    const target = tab === "ideas" ? document.querySelector("#panel-ideas .idea.active")
+      : tab === "statements" ? document.querySelector("#panel-statements tr.row.active") : null;
+    if (target) scrollIntoPanel(target, tab === "statements");
+  });
 
   // ---------- flow of the video ----------
   // Kinds of talk and their level (as in summary.py and ANALYSIS.md); left of the axis nothing on the subject.
@@ -2028,10 +2070,7 @@
     for (const [t, el] of items) if (t <= now) current = el;
     items.forEach(([, el]) => el.classList.toggle("active", el === current));
   }
-  setInterval(() => {
-    if (!ready || !player || typeof player.getCurrentTime !== "function") return;
-    if (player.getPlayerState() !== YT.PlayerState.PLAYING) return;
-    const now = player.getCurrentTime();
+  function markPlaying(now) {
     mark("ul.topics li", li => Number(li.querySelector("a.t").dataset.t), now);
     const toc = document.querySelector("#toc .toc-topics"), active = toc && toc.querySelector("li.active");
     if (active && toc.scrollHeight > toc.clientHeight) {
@@ -2041,6 +2080,11 @@
     mark(".idea", el => Number(el.dataset.t), now);
     mark("#panel-statements tr.row", el => Number(el.dataset.t), now);
     movePlayhead(now);
+  }
+  setInterval(() => {
+    if (!ready || !player || typeof player.getCurrentTime !== "function") return;
+    if (player.getPlayerState() !== YT.PlayerState.PLAYING) return;
+    markPlaying(player.getCurrentTime());
   }, 1000);
 
   // ---------- start ----------

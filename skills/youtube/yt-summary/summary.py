@@ -78,6 +78,8 @@ LABELS = {
     "ideas": "Main ideas",
     "reasoning": "Reasoning",
     "moments": "In the video",
+    "to_playing": "Playing now",
+    "to_playing_title": "Scroll to the part being played",
     "chapters": "Chapters",
     "description": "Description",
     "no_summary": "This video has no summary yet.",
